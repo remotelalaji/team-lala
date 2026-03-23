@@ -1,19 +1,16 @@
 import os
 import json
 import traceback
-import io
 
-from flask import Flask, render_template_string, send_file
+from flask import Flask, render_template_string, Response
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
 
 app = Flask(__name__)
 
-# ================== CONFIG ==================
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
-# ================== AUTH ==================
+# ================= AUTH =================
 service = None
 auth_error = None
 
@@ -23,10 +20,8 @@ try:
     if not raw_json:
         raise Exception("SERVICE_ACCOUNT_JSON missing")
 
-    SERVICE_ACCOUNT_INFO = json.loads(raw_json)
-
     creds = service_account.Credentials.from_service_account_info(
-        SERVICE_ACCOUNT_INFO,
+        json.loads(raw_json),
         scopes=['https://www.googleapis.com/auth/drive']
     )
 
@@ -36,44 +31,34 @@ except Exception:
     auth_error = traceback.format_exc()
 
 
-# ================== GET FILES ==================
+# ================= GET FILES =================
 def get_files():
+    results = service.files().list(
+        q=f"'{FOLDER_ID}' in parents and trashed=false",
+        fields="files(id, name)",
+        pageSize=100
+    ).execute()
+
+    return results.get('files', [])
+
+
+# ================= STREAM AUDIO =================
+@app.route("/stream/<file_id>")
+def stream(file_id):
     try:
-        results = service.files().list(
-            q=f"'{FOLDER_ID}' in parents and trashed=false",
-            fields="files(id, name)",
-            pageSize=100
-        ).execute()
+        request = service.files().get_media(fileId=file_id)
 
-        return results.get('files', [])
+        def generate():
+            fh = request.execute()
+            yield fh  # direct stream
 
-    except Exception:
-        return traceback.format_exc()
-
-
-# ================== PLAY AUDIO ==================
-@app.route("/play/<file_id>")
-def play(file_id):
-    try:
-        request_drive = service.files().get_media(fileId=file_id)
-
-        fh = io.BytesIO()
-        downloader = MediaIoBaseDownload(fh, request_drive)
-
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
-
-        fh.seek(0)
-
-        # 🔥 IMPORTANT: m4a fix
-        return send_file(fh, mimetype="audio/mp4")
+        return Response(generate(), mimetype="audio/mp4")
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-# ================== MAIN ==================
+# ================= MAIN =================
 @app.route("/")
 def index():
     try:
@@ -81,9 +66,6 @@ def index():
             return f"<pre>{auth_error}</pre>"
 
         files = get_files()
-
-        if isinstance(files, str):
-            return f"<pre>{files}</pre>"
 
         html = """
         <html>
@@ -103,11 +85,21 @@ def index():
         <div class="card">
             <b>{{f.name}}</b><br><br>
 
-            <audio controls>
-                <source src="/play/{{f.id}}" type="audio/mp4">
+            <audio controls onplay="pauseOthers(this)">
+                <source src="/stream/{{f.id}}" type="audio/mp4">
             </audio>
         </div>
         {% endfor %}
+
+        <script>
+        function pauseOthers(current) {
+            document.querySelectorAll("audio").forEach(a => {
+                if (a !== current) {
+                    a.pause();
+                }
+            });
+        }
+        </script>
 
         </body>
         </html>
@@ -119,7 +111,7 @@ def index():
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-# ================== RUN ==================
+# ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
