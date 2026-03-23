@@ -65,7 +65,9 @@ def play(file_id):
             status, done = downloader.next_chunk()
 
         fh.seek(0)
-        return send_file(fh, mimetype="audio/mpeg")
+
+        # 🔥 IMPORTANT: m4a fix
+        return send_file(fh, mimetype="audio/mp4")
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
@@ -102,7 +104,7 @@ def index():
             <b>{{f.name}}</b><br><br>
 
             <audio controls>
-                <source src="/play/{{f.id}}">
+                <source src="/play/{{f.id}}" type="audio/mp4">
             </audio>
         </div>
         {% endfor %}
