@@ -80,10 +80,9 @@ def process_files(files, selected_customer=None):
 
         processed.append(f)
 
-    # Sort calls (latest first)
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
 
-    # ✅ FIX: Proper alphabetical sorting
+    # ✅ Proper alphabetical sorting
     customers = sorted(customers, key=lambda x: x.strip().lower())
 
     return processed, customers
@@ -135,11 +134,6 @@ def index():
             padding:15px;
         }
 
-        .sidebar h2 {
-            margin-bottom:15px;
-            font-size:18px;
-        }
-
         .cust {
             display:block;
             padding:12px 14px;
@@ -165,6 +159,7 @@ def index():
         .main {
             flex:1;
             overflow-y:auto;
+            padding-bottom:50px;
         }
 
         .header {
@@ -203,19 +198,28 @@ def index():
             margin-top:12px;
         }
 
-        /* ===== MOBILE ===== */
+        /* ===== MOBILE FIX ===== */
         @media (max-width: 768px) {
+
             body {
-                flex-direction:column;
+                display:block;
             }
+
             .sidebar {
                 width:100%;
                 height:auto;
                 display:flex;
                 overflow-x:auto;
+                gap:10px;
             }
+
             .cust {
                 white-space:nowrap;
+                flex-shrink:0;
+            }
+
+            .main {
+                width:100%;
             }
         }
         </style>
@@ -223,10 +227,8 @@ def index():
 
         <body>
 
-        <!-- ===== SIDEBAR ===== -->
+        <!-- SIDEBAR -->
         <div class="sidebar">
-            <h2>Customers</h2>
-
             <a class="cust" href="/">All</a>
 
             {% for c in customers %}
@@ -236,7 +238,7 @@ def index():
             {% endfor %}
         </div>
 
-        <!-- ===== MAIN CONTENT ===== -->
+        <!-- MAIN -->
         <div class="main">
 
         <div class="header">📞 TEAM LALA CALLS</div>
