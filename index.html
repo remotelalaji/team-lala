@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TEAM LALA CALLS</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<h2>📞 TEAM LALA CALLS</h2>
+
+<!-- DATE FILTER -->
+<div style="padding:10px;">
+    <input type="date" id="dateFilter" onchange="resetAndLoad()">
+</div>
+
+<!-- NAMES BAR -->
+<div class="name-bar" id="nameBar"></div>
+
+<!-- RECORDINGS -->
+<div id="recordings"></div>
+
+<script>
+let page = 1;
+let loading = false;
+let hasMore = true;
+
+function resetAndLoad() {
+    page = 1;
+    document.getElementById("recordings").innerHTML = "";
+    loadData();
+}
+
+async function loadData() {
+    if (loading || !hasMore) return;
+    loading = true;
+
+    let date = document.getElementById("dateFilter").value;
+    let url = `/api/recordings?page=${page}&date=${date}`;
+
+    let res = await fetch(url);
+    let result = await res.json();
+
+    let container = document.getElementById("recordings");
+
+    result.data.forEach(r => {
+        container.innerHTML += `
+        <div class="card">
+            <div class="title">${r.name}</div>
+            <div class="date">${r.date} • ${r.time}</div>
+            <audio controls src="${r.audio}"></audio>
+        </div>
+        `;
+    });
+
+    // Top name bar update
+    updateNames(result.data);
+
+    hasMore = result.has_more;
+    page++;
+    loading = false;
+}
+
+function updateNames(data) {
+    let bar = document.getElementById("nameBar");
+    data.forEach(d => {
+        let div = document.createElement("div");
+        div.className = "name-card";
+        div.innerText = d.name;
+        bar.appendChild(div);
+    });
+}
+
+// Infinite scroll
+window.addEventListener("scroll", () => {
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 100) {
+        loadData();
+    }
+});
+
+// Initial load
+loadData();
+</script>
+
+</body>
+</html>
