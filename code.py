@@ -2,6 +2,8 @@ import io
 import re
 import os
 import json
+import math
+from datetime import datetime
 from flask import Flask, request, render_template_string, send_file
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -43,7 +45,7 @@ def parse_filename(name):
 
     return name, "", ""
 
-# ================== GET FILES (FIXED 🔥) ==================
+# ================== GET FILES ==================
 def get_files():
     results = service.files().list(
         q=f"'{FOLDER_ID}' in parents",
@@ -57,31 +59,41 @@ def get_files():
 
     parsed = []
     for f in files:
-        if "audio" in f.get("mimeType", ""):   # 🔥 filter audio
+        if "audio" in f.get("mimeType", ""):
             name, date, time = parse_filename(f['name'])
+            dt = None
+            if date and time:
+                try:
+                    dt = datetime.strptime(f"{date} {time}", "%d-%m-%Y %H:%M:%S")
+                except:
+                    dt = None
             parsed.append({
                 "id": f['id'],
                 "name": name,
                 "date": date,
                 "time": time,
-                "filename": f['name']
+                "filename": f['name'],
+                "datetime": dt
             })
 
-    return sorted(parsed, key=lambda x: x["time"], reverse=True)
+    return sorted(parsed, key=lambda x: x["datetime"] or datetime.min, reverse=True)
 
 # ================== STREAM AUDIO ==================
 @app.route("/play/<file_id>")
 def play(file_id):
-    request_drive = service.files().get_media(fileId=file_id)
-    fh = io.BytesIO()
-    downloader = MediaIoBaseDownload(fh, request_drive)
+    try:
+        request_drive = service.files().get_media(fileId=file_id)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request_drive)
 
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
 
-    fh.seek(0)
-    return send_file(fh, mimetype="audio/mpeg")
+        fh.seek(0)
+        return send_file(fh, mimetype="audio/mpeg")
+    except Exception as e:
+        return f"Error streaming file: {str(e)}"
 
 # ================== MAIN ==================
 @app.route("/")
@@ -93,7 +105,7 @@ def index():
         start = (page - 1) * PER_PAGE
         end = start + PER_PAGE
 
-        total_pages = (len(files) // PER_PAGE) + 1
+        total_pages = math.ceil(len(files) / PER_PAGE)
         current_files = files[start:end]
 
         html = """
@@ -129,7 +141,7 @@ def index():
             {% if page > 1 %}
                 <a class="btn" href="/?page={{page-1}}">⬅ Prev</a>
             {% endif %}
-            Page {{page}}
+            Page {{page}} of {{total}}
             {% if page < total %}
                 <a class="btn" href="/?page={{page+1}}">Next ➡</a>
             {% endif %}
