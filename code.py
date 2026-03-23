@@ -1,5 +1,7 @@
 import io
 import re
+import os
+import json
 from flask import Flask, request, render_template_string, send_file
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -8,15 +10,22 @@ from googleapiclient.http import MediaIoBaseDownload
 app = Flask(__name__)
 
 # ================== CONFIG ==================
-SERVICE_ACCOUNT_FILE = "service_account.json"  # JSON file name
-FOLDER_ID = "1n78FKBkQHvdqcTjOap9yUB1f_G0JsjrR"  # tumhara folder id
+SERVICE_ACCOUNT_FILE = "service_account.json"
+FOLDER_ID = "1n78FKBkQHvdqcTjOap9yUB1f_G0JsjrR"
 PER_PAGE = 100
 
-# ================== GOOGLE DRIVE AUTH ==================
-creds = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE,
-    scopes=['https://www.googleapis.com/auth/drive.readonly']
-)
+# ================== GOOGLE AUTH (FIXED 🔥) ==================
+if "GOOGLE_CREDENTIALS" in os.environ:
+    creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict,
+        scopes=['https://www.googleapis.com/auth/drive.readonly']
+    )
+else:
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE,
+        scopes=['https://www.googleapis.com/auth/drive.readonly']
+    )
 
 service = build('drive', 'v3', credentials=creds)
 
@@ -29,7 +38,6 @@ def parse_filename(name):
         date_raw = match.group(2)
         time_raw = match.group(3)
 
-        # DATE FIX (IMPORTANT 🔥)
         day = date_raw[:2]
         month = date_raw[2:4]
         year = "20" + date_raw[4:]
@@ -135,6 +143,7 @@ def index():
 
     return render_template_string(html, files=current_files, page=page, total=total_pages)
 
-# ================== RUN ==================
+# ================== RUN (FIXED PORT 🔥) ==================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
