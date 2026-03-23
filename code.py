@@ -2,7 +2,6 @@ import os
 import json
 import traceback
 import re
-import math
 from datetime import datetime, timedelta
 from flask import Flask, render_template_string, request, Response
 from google.oauth2 import service_account
@@ -11,7 +10,6 @@ from googleapiclient.discovery import build
 app = Flask(__name__)
 
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
-PER_PAGE = 50
 
 # ================= AUTH =================
 service = None
@@ -51,7 +49,7 @@ def extract_datetime(filename):
         pass
     return None
 
-# ================= GET ALL FILES =================
+# ================= GET FILES =================
 def get_all_files():
     results = service.files().list(
         q=f"'{FOLDER_ID}' in parents and trashed=false",
@@ -62,19 +60,18 @@ def get_all_files():
     return results.get('files', [])
 
 # ================= PROCESS =================
-def process_files(files, search, start, end):
+def process_files(files, selected_customer=None):
+
     processed = []
+    customers = set()
 
     for f in files:
         name = extract_name(f['name'])
         dt = extract_datetime(f['name'])
 
-        if search and search.lower() not in name.lower():
-            continue
+        customers.add(name)
 
-        if start and dt and dt < start:
-            continue
-        if end and dt and dt > end:
+        if selected_customer and name != selected_customer:
             continue
 
         f['clean_name'] = name
@@ -97,7 +94,7 @@ def process_files(files, search, start, end):
 
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
 
-    return processed
+    return processed, sorted(customers)
 
 # ================= STREAM =================
 @app.route("/stream/<file_id>")
@@ -112,38 +109,10 @@ def index():
         if auth_error:
             return f"<pre>{auth_error}</pre>"
 
-        page = int(request.args.get("page", 1))
-        search = request.args.get("search", "")
-
-        today = request.args.get("today")
-        yesterday = request.args.get("yesterday")
-        single = request.args.get("single")
-
-        start_dt = None
-        end_dt = None
-
-        if today:
-            now = datetime.now()
-            start_dt = datetime(now.year, now.month, now.day)
-            end_dt = start_dt + timedelta(days=1)
-
-        elif yesterday:
-            now = datetime.now()
-            start_dt = datetime(now.year, now.month, now.day) - timedelta(days=1)
-            end_dt = start_dt + timedelta(days=1)
-
-        elif single:
-            start_dt = datetime.strptime(single, "%Y-%m-%d")
-            end_dt = start_dt + timedelta(days=1)
+        selected_customer = request.args.get("customer")
 
         all_files = get_all_files()
-        processed = process_files(all_files, search, start_dt, end_dt)
-
-        total_pages = math.ceil(len(processed) / PER_PAGE)
-
-        start = (page - 1) * PER_PAGE
-        end = start + PER_PAGE
-        current_files = processed[start:end]
+        files, customers = process_files(all_files, selected_customer)
 
         html = """
         <html>
@@ -153,38 +122,36 @@ def index():
         <style>
         body {background:#0b141a;color:white;font-family:sans-serif;margin:0;}
 
-        .header {background:#202c33;padding:18px;font-size:20px;font-weight:bold;}
+        .header {background:#202c33;padding:15px;font-size:18px;}
 
-        .filter {padding:10px;background:#111;}
-
-        input,button {
-            padding:10px;margin:5px;border-radius:8px;border:none;
+        .customers {
+            display:flex;
+            overflow-x:auto;
+            padding:10px;
+            background:#111;
         }
 
-        button {background:#00a884;color:white;}
-
-        .msg {background:#005c4b;margin:12px;padding:14px;border-radius:12px;}
-
-        .name {font-weight:bold;font-size:18px;}
-
-        .time {font-size:13px;color:#ccc;}
-
-        audio {width:100%;margin-top:8px;}
-
-        .pagination {text-align:center;margin:20px;}
-
-        .page {
+        .cust {
             padding:8px 12px;
-            margin:2px;
-            background:#00a884;
-            border-radius:6px;
+            margin-right:8px;
+            background:#005c4b;
+            border-radius:20px;
             text-decoration:none;
             color:white;
+            white-space:nowrap;
         }
 
         .active {
             background:#ff9800;
         }
+
+        .msg {background:#005c4b;margin:12px;padding:12px;border-radius:10px;}
+
+        .name {font-weight:bold;font-size:18px;}
+
+        .time {font-size:12px;color:#ccc;}
+
+        audio {width:100%;margin-top:5px;}
         </style>
         </head>
 
@@ -192,17 +159,13 @@ def index():
 
         <div class="header">📱 TEAM LALA</div>
 
-        <div class="filter">
-            <form>
-                🔍 <input type="text" name="search">
-
-                📅 <input type="date" name="single">
-
-                <button name="today" value="1">Today</button>
-                <button name="yesterday" value="1">Yesterday</button>
-
-                <button>Apply</button>
-            </form>
+        <div class="customers">
+            <a class="cust" href="/">All</a>
+            {% for c in customers %}
+                <a class="cust {% if c==selected_customer %}active{% endif %}" href="/?customer={{c}}">
+                    {{c}}
+                </a>
+            {% endfor %}
         </div>
 
         {% for f in files %}
@@ -216,14 +179,6 @@ def index():
         </div>
         {% endfor %}
 
-        <div class="pagination">
-        {% for p in range(1, total_pages+1) %}
-            <a class="page {% if p==page %}active{% endif %}" href="/?page={{p}}">
-                {{p}}
-            </a>
-        {% endfor %}
-        </div>
-
         <script>
         function pauseOthers(current){
             document.querySelectorAll("audio").forEach(a=>{
@@ -236,7 +191,7 @@ def index():
         </html>
         """
 
-        return render_template_string(html, files=current_files, page=page, total_pages=total_pages)
+        return render_template_string(html, files=files, customers=customers, selected_customer=selected_customer)
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
