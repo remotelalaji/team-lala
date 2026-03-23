@@ -9,7 +9,6 @@ from googleapiclient.discovery import build
 
 app = Flask(__name__)
 
-# ================= CONFIG =================
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
 # ================= AUTH =================
@@ -29,32 +28,25 @@ try:
 except Exception:
     auth_error = traceback.format_exc()
 
-
-# ================= NAME CLEAN =================
+# ================= NAME =================
 def extract_name(filename):
     try:
         return filename.replace("Call recording ", "", 1).split("_")[0].strip()
     except:
         return filename
 
-
-# ================= DATE FIX (CORRECT) =================
+# ================= DATE =================
 def extract_datetime(filename):
     try:
         match = re.search(r"_(\d{6})_(\d{6})", filename)
         if match:
-            date_raw = match.group(1)
-            time_raw = match.group(2)
-
-            # 🔥 FIXED FORMAT (YYMMDD)
-            return datetime.strptime(date_raw + time_raw, "%y%m%d%H%M%S")
+            return datetime.strptime(match.group(1)+match.group(2), "%y%m%d%H%M%S")
     except:
         pass
     return None
 
-
 # ================= GET FILES =================
-def get_files(page_token=None):
+def get_files(page_token=None, search="", start=None, end=None):
 
     results = service.files().list(
         q=f"'{FOLDER_ID}' in parents and trashed=false",
@@ -70,19 +62,30 @@ def get_files(page_token=None):
     processed = []
 
     for f in files:
+        name = extract_name(f['name'])
         dt = extract_datetime(f['name'])
 
-        f['clean_name'] = extract_name(f['name'])
+        # 🔍 NAME FILTER
+        if search and search.lower() not in name.lower():
+            continue
+
+        # 📅 DATE FILTER
+        if start and dt:
+            if dt < start:
+                continue
+        if end and dt:
+            if dt > end:
+                continue
+
+        f['clean_name'] = name
         f['dt_obj'] = dt
         f['dt'] = dt.strftime("%d %b %Y | %I:%M %p") if dt else ""
 
         processed.append(f)
 
-    # latest first
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
 
     return processed, next_token
-
 
 # ================= STREAM =================
 @app.route("/stream/<file_id>")
@@ -93,7 +96,6 @@ def stream(file_id):
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
-
 # ================= MAIN =================
 @app.route("/")
 def index():
@@ -102,75 +104,52 @@ def index():
             return f"<pre>{auth_error}</pre>"
 
         token = request.args.get("pageToken")
+        search = request.args.get("search", "")
+        start = request.args.get("start")
+        end = request.args.get("end")
 
-        files, next_token = get_files(token)
+        start_dt = datetime.strptime(start, "%Y-%m-%d") if start else None
+        end_dt = datetime.strptime(end, "%Y-%m-%d") if end else None
+
+        files, next_token = get_files(token, search, start_dt, end_dt)
 
         html = """
         <html>
         <head>
-        <title>TEAM LALA</title>
-
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
         <style>
-        body {
-            background:#0b141a;
-            color:white;
-            font-family:sans-serif;
-            margin:0;
-            font-size:16px;
-        }
+        body {background:#0b141a;color:white;font-family:sans-serif;margin:0;}
 
-        .header {
-            background:#202c33;
-            padding:18px;
-            font-size:20px;
-            font-weight:bold;
-        }
+        .header {background:#202c33;padding:15px;font-size:18px;font-weight:bold;}
 
-        .chat {
-            padding:12px;
-        }
+        .filter {padding:10px;background:#111;}
+        input {padding:8px;margin:5px;border-radius:6px;border:none;}
 
-        .msg {
-            background:#005c4b;
-            margin:12px 0;
-            padding:14px;
-            border-radius:12px;
-        }
+        .msg {background:#005c4b;margin:10px;padding:10px;border-radius:10px;}
 
-        .name {
-            font-size:16px;
-            font-weight:bold;
-        }
+        .name {font-size:16px;font-weight:bold;}
+        .time {font-size:12px;color:#ccc;}
 
-        .time {
-            font-size:13px;
-            color:#ccc;
-        }
+        audio {width:100%;margin-top:5px;}
 
-        audio {
-            width:100%;
-            margin-top:8px;
-        }
-
-        .btn {
-            display:inline-block;
-            padding:14px 22px;
-            font-size:16px;
-            background:#00a884;
-            color:white;
-            border-radius:10px;
-            text-decoration:none;
-        }
+        .btn {padding:10px;background:#00a884;color:white;border-radius:8px;text-decoration:none;}
         </style>
         </head>
 
         <body>
 
-        <div class="header">📱 TEAM LALA - Recordings</div>
+        <div class="header">📱 TEAM LALA</div>
 
-        <div class="chat">
+        <div class="filter">
+            <form>
+                🔍 <input type="text" name="search" placeholder="Search name" value="{{request.args.get('search','')}}">
+                📅 <input type="date" name="start">
+                to
+                <input type="date" name="end">
+                <button>Filter</button>
+            </form>
+        </div>
 
         {% for f in files %}
         <div class="msg">
@@ -185,20 +164,16 @@ def index():
 
         {% if next_token %}
         <div style="text-align:center;margin:20px;">
-            <a class="btn" href="/?pageToken={{next_token}}">
+            <a class="btn" href="/?pageToken={{next_token}}&search={{request.args.get('search','')}}">
                 ➡ Next Page
             </a>
         </div>
         {% endif %}
 
-        </div>
-
         <script>
         function pauseOthers(current){
             document.querySelectorAll("audio").forEach(a=>{
-                if(a!==current){
-                    a.pause();
-                }
+                if(a!==current){a.pause();}
             });
         }
         </script>
@@ -211,7 +186,6 @@ def index():
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
-
 
 # ================= RUN =================
 if __name__ == "__main__":
