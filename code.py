@@ -1,11 +1,7 @@
-import io
-import re
 import os
 import json
-import math
 import traceback
-from datetime import datetime
-from flask import Flask, request, render_template_string
+from flask import Flask, render_template_string
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -21,7 +17,7 @@ try:
     raw_json = os.environ.get("SERVICE_ACCOUNT_JSON")
 
     if not raw_json:
-        raise Exception("❌ SERVICE_ACCOUNT_JSON not found")
+        raise Exception("SERVICE_ACCOUNT_JSON not found")
 
     SERVICE_ACCOUNT_INFO = json.loads(raw_json)
 
@@ -32,7 +28,7 @@ try:
 
     service = build('drive', 'v3', credentials=creds)
 
-except Exception as e:
+except Exception:
     service = None
     auth_error = traceback.format_exc()
 
@@ -41,27 +37,24 @@ def get_files():
     try:
         results = service.files().list(
             q=f"'{FOLDER_ID}' in parents",
-            fields="files(id, name, mimeType)",
+            fields="files(id, name)",
             pageSize=100,
             supportsAllDrives=True,
-            includeItemsFromAllDrives=True
+            includeItemsFromAllDrives=True,
+            corpora="allDrives"
         ).execute()
 
         files = results.get('files', [])
-
-        names = [f['name'] for f in files]
-
-        return names
+        return [f['name'] for f in files]
 
     except HttpError as e:
         return f"""
-🔥 GOOGLE DRIVE ERROR
+GOOGLE DRIVE ERROR
 
 Status Code: {e.resp.status}
 
 Details:
 {e.content.decode() if hasattr(e.content, 'decode') else str(e)}
-
 """
 
     except Exception:
@@ -72,7 +65,7 @@ Details:
 def index():
     try:
         if service is None:
-            return f"<pre>AUTH ERROR:\n{auth_error}</pre>"
+            return f"<pre>{auth_error}</pre>"
 
         files = get_files()
 
