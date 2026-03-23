@@ -9,6 +9,7 @@ from googleapiclient.discovery import build
 
 app = Flask(__name__)
 
+# ================= CONFIG =================
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
 # ================= AUTH =================
@@ -28,6 +29,7 @@ try:
 except Exception:
     auth_error = traceback.format_exc()
 
+
 # ================= NAME CLEAN =================
 def extract_name(filename):
     try:
@@ -39,7 +41,8 @@ def extract_name(filename):
     except:
         return filename
 
-# ================= DATE =================
+
+# ================= DATE PARSE =================
 def extract_datetime(filename):
     try:
         match = re.search(r"_(\d{6})_(\d{6})", filename)
@@ -48,6 +51,7 @@ def extract_datetime(filename):
     except:
         pass
     return None
+
 
 # ================= GET FILES =================
 def get_files(page_token=None, search="", start=None, end=None):
@@ -69,9 +73,11 @@ def get_files(page_token=None, search="", start=None, end=None):
         name = extract_name(f['name'])
         dt = extract_datetime(f['name'])
 
+        # 🔍 search filter
         if search and search.lower() not in name.lower():
             continue
 
+        # 📅 date filter
         if start and dt and dt < start:
             continue
         if end and dt and dt > end:
@@ -80,6 +86,7 @@ def get_files(page_token=None, search="", start=None, end=None):
         f['clean_name'] = name
         f['dt_obj'] = dt
 
+        # 📅 WhatsApp style date
         if dt:
             today = datetime.now().date()
             if dt.date() == today:
@@ -95,9 +102,11 @@ def get_files(page_token=None, search="", start=None, end=None):
 
         processed.append(f)
 
+    # 🔥 latest first
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
 
     return processed, next_token
+
 
 # ================= STREAM =================
 @app.route("/stream/<file_id>")
@@ -107,6 +116,7 @@ def stream(file_id):
         return Response(request_drive.execute(), mimetype="audio/mp4")
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
+
 
 # ================= MAIN =================
 @app.route("/")
@@ -272,6 +282,7 @@ def index():
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
+
 
 # ================= RUN =================
 if __name__ == "__main__":
