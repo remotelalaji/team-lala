@@ -1,0 +1,46 @@
+body {
+    font-family: Arial;
+    background: #0f2027;
+    color: white;
+    margin: 0;
+    padding: 10px;
+    scroll-behavior: smooth;
+}
+
+/* Name bar */
+.name-bar {
+    display: flex;
+    overflow-x: auto;
+    gap: 10px;
+    padding: 10px;
+}
+
+.name-card {
+    min-width: 120px;
+    max-width: 140px;
+    padding: 10px;
+    border-radius: 12px;
+    background: #2c3e50;
+    font-weight: bold;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Cards */
+.card {
+    background: #1c2b33;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 15px;
+}
+
+.title {
+    font-weight: bold;
+}
+
+.date {
+    font-size: 12px;
+    margin-bottom: 5px;
+}
