@@ -38,7 +38,7 @@ def extract_name(filename):
         return filename
 
 
-# ================= DATE PARSE =================
+# ================= DATE FIX (CORRECT) =================
 def extract_datetime(filename):
     try:
         match = re.search(r"_(\d{6})_(\d{6})", filename)
@@ -46,8 +46,8 @@ def extract_datetime(filename):
             date_raw = match.group(1)
             time_raw = match.group(2)
 
-            dt = datetime.strptime(date_raw + time_raw, "%d%m%y%H%M%S")
-            return dt
+            # 🔥 FIXED FORMAT (YYMMDD)
+            return datetime.strptime(date_raw + time_raw, "%y%m%d%H%M%S")
     except:
         pass
     return None
@@ -70,16 +70,15 @@ def get_files(page_token=None):
     processed = []
 
     for f in files:
-        name = f['name']
-        dt = extract_datetime(name)
+        dt = extract_datetime(f['name'])
 
-        f['clean_name'] = extract_name(name)
+        f['clean_name'] = extract_name(f['name'])
         f['dt_obj'] = dt
         f['dt'] = dt.strftime("%d %b %Y | %I:%M %p") if dt else ""
 
         processed.append(f)
 
-    # 🔥 latest first
+    # latest first
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
 
     return processed, next_token
@@ -111,58 +110,59 @@ def index():
         <head>
         <title>TEAM LALA</title>
 
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
         <style>
         body {
             background:#0b141a;
             color:white;
             font-family:sans-serif;
             margin:0;
+            font-size:16px;
         }
 
         .header {
             background:#202c33;
-            padding:15px;
-            font-size:18px;
+            padding:18px;
+            font-size:20px;
             font-weight:bold;
         }
 
         .chat {
-            padding:10px;
-            max-height:90vh;
-            overflow-y:auto;
+            padding:12px;
         }
 
         .msg {
             background:#005c4b;
-            margin:10px 0;
-            padding:10px 12px;
-            border-radius:10px;
+            margin:12px 0;
+            padding:14px;
+            border-radius:12px;
         }
 
         .name {
-            font-size:14px;
-            margin-bottom:5px;
+            font-size:16px;
+            font-weight:bold;
         }
 
         .time {
-            font-size:12px;
+            font-size:13px;
             color:#ccc;
-            margin-bottom:5px;
         }
 
         audio {
             width:100%;
+            margin-top:8px;
         }
 
         .btn {
             display:inline-block;
-            padding:10px 20px;
+            padding:14px 22px;
+            font-size:16px;
             background:#00a884;
             color:white;
-            border-radius:8px;
+            border-radius:10px;
             text-decoration:none;
         }
-
         </style>
         </head>
 
