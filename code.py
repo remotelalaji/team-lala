@@ -10,10 +10,10 @@ from googleapiclient.http import MediaIoBaseDownload
 app = Flask(__name__)
 
 # ================== CONFIG ==================
-FOLDER_ID = "1n78FKBkQHvdqcTjOap9yUB1f_G0JsjrR"  # tumhara folder id
+FOLDER_ID = "1n78FKBkQHvdqcTjOap9yUB1f_G0JsjrR"
 PER_PAGE = 100
 
-# ================== GOOGLE DRIVE AUTH (ENV FIX) ==================
+# ================== GOOGLE DRIVE AUTH ==================
 SERVICE_ACCOUNT_INFO = json.loads(os.environ.get("SERVICE_ACCOUNT_JSON"))
 
 creds = service_account.Credentials.from_service_account_info(
@@ -43,26 +43,29 @@ def parse_filename(name):
 
     return name, "", ""
 
-# ================== GET FILES ==================
+# ================== GET FILES (FIXED 🔥) ==================
 def get_files():
     results = service.files().list(
-        q=f"'{FOLDER_ID}' in parents and mimeType contains 'audio/'",
-        fields="files(id, name)",
-        pageSize=1000
+        q=f"'{FOLDER_ID}' in parents",
+        fields="files(id, name, mimeType)",
+        pageSize=1000,
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
     ).execute()
 
     files = results.get('files', [])
 
     parsed = []
     for f in files:
-        name, date, time = parse_filename(f['name'])
-        parsed.append({
-            "id": f['id'],
-            "name": name,
-            "date": date,
-            "time": time,
-            "filename": f['name']
-        })
+        if "audio" in f.get("mimeType", ""):   # 🔥 filter audio
+            name, date, time = parse_filename(f['name'])
+            parsed.append({
+                "id": f['id'],
+                "name": name,
+                "date": date,
+                "time": time,
+                "filename": f['name']
+            })
 
     return sorted(parsed, key=lambda x: x["time"], reverse=True)
 
@@ -139,9 +142,9 @@ def index():
         return render_template_string(html, files=current_files, page=page, total=total_pages)
 
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"ERROR: {str(e)}"
 
-# ================== RUN (RENDER FIX) ==================
+# ================== RUN ==================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
