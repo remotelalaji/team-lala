@@ -10,11 +10,11 @@ from googleapiclient.http import MediaIoBaseDownload
 app = Flask(__name__)
 
 # ================== CONFIG ==================
-FOLDER_ID = "1n78FKBkQHvdqcTjOap9yUB1f_G0JsjrR"
+FOLDER_ID = "1n78FKBkQHvdqcTjOap9yUB1f_G0JsjrR"  # tumhara folder id
 PER_PAGE = 100
 
-# ================== GOOGLE AUTH ==================
-SERVICE_ACCOUNT_INFO = json.loads(os.environ["SERVICE_ACCOUNT_JSON"])
+# ================== GOOGLE DRIVE AUTH (ENV FIX) ==================
+SERVICE_ACCOUNT_INFO = json.loads(os.environ.get("SERVICE_ACCOUNT_JSON"))
 
 creds = service_account.Credentials.from_service_account_info(
     SERVICE_ACCOUNT_INFO,
@@ -83,60 +83,65 @@ def play(file_id):
 # ================== MAIN ==================
 @app.route("/")
 def index():
-    page = int(request.args.get("page", 1))
-    files = get_files()
+    try:
+        page = int(request.args.get("page", 1))
+        files = get_files()
 
-    start = (page - 1) * PER_PAGE
-    end = start + PER_PAGE
+        start = (page - 1) * PER_PAGE
+        end = start + PER_PAGE
 
-    total_pages = (len(files) // PER_PAGE) + 1
-    current_files = files[start:end]
+        total_pages = (len(files) // PER_PAGE) + 1
+        current_files = files[start:end]
 
-    html = """
-    <html>
-    <head>
-        <title>TEAM LALA</title>
-        <style>
-            body {background:#0b1f2a;color:white;font-family:sans-serif;}
-            .card {background:#123544;padding:15px;margin:10px;border-radius:10px;}
-            audio {width:100%;}
-            .header {display:flex;justify-content:space-between;}
-            .btn {color:#00ffaa;margin:10px;}
-        </style>
-    </head>
-    <body>
+        html = """
+        <html>
+        <head>
+            <title>TEAM LALA</title>
+            <style>
+                body {background:#0b1f2a;color:white;font-family:sans-serif;}
+                .card {background:#123544;padding:15px;margin:10px;border-radius:10px;}
+                audio {width:100%;}
+                .header {display:flex;justify-content:space-between;}
+                .btn {color:#00ffaa;margin:10px;}
+            </style>
+        </head>
+        <body>
 
-    <div class="header">
-        <h2>🎧 Recordings</h2>
-        <h2>TEAM LALA</h2>
-    </div>
+        <div class="header">
+            <h2>🎧 Recordings</h2>
+            <h2>TEAM LALA</h2>
+        </div>
 
-    {% for f in files %}
-    <div class="card">
-        <b>{{f.name}}</b><br>
-        📅 {{f.date}} ⏰ {{f.time}}
-        <audio controls>
-            <source src="/play/{{f.id}}">
-        </audio>
-    </div>
-    {% endfor %}
+        {% for f in files %}
+        <div class="card">
+            <b>{{f.name}}</b><br>
+            📅 {{f.date}} ⏰ {{f.time}}
+            <audio controls>
+                <source src="/play/{{f.id}}">
+            </audio>
+        </div>
+        {% endfor %}
 
-    <div style="text-align:center">
-        {% if page > 1 %}
-            <a class="btn" href="/?page={{page-1}}">⬅ Prev</a>
-        {% endif %}
-        Page {{page}}
-        {% if page < total %}
-            <a class="btn" href="/?page={{page+1}}">Next ➡</a>
-        {% endif %}
-    </div>
+        <div style="text-align:center">
+            {% if page > 1 %}
+                <a class="btn" href="/?page={{page-1}}">⬅ Prev</a>
+            {% endif %}
+            Page {{page}}
+            {% if page < total %}
+                <a class="btn" href="/?page={{page+1}}">Next ➡</a>
+            {% endif %}
+        </div>
 
-    </body>
-    </html>
-    """
+        </body>
+        </html>
+        """
 
-    return render_template_string(html, files=current_files, page=page, total=total_pages)
+        return render_template_string(html, files=current_files, page=page, total=total_pages)
 
-# ================== RUN ==================
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+# ================== RUN (RENDER FIX) ==================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
