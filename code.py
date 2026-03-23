@@ -1,60 +1,239 @@
-from flask import Flask, render_template, request, redirect, session, jsonify
-import random
+import os
+import json
+import traceback
+import re
 from datetime import datetime, timedelta
+from flask import Flask, render_template_string, request, Response
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 app = Flask(__name__)
-app.secret_key = "secret123"
 
-PASSWORD = "669900"
+FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
-# Dummy data (replace with Google Drive later)
-def get_recordings():
-    data = []
-    for i in range(1000):
-        data.append({
-            "name": f"{random.randint(10,99)} UserNameLongExample {i}",
-            "date": (datetime.now() - timedelta(days=random.randint(0,5))).strftime("%Y-%m-%d"),
-            "time": datetime.now().strftime("%I:%M %p"),
-            "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-        })
-    return data
+# ================= AUTH =================
+service = None
+auth_error = None
 
+try:
+    raw_json = os.environ.get("SERVICE_ACCOUNT_JSON")
 
-@app.route("/", methods=["GET"])
-def home():
-    if not session.get("logged_in"):
-        return redirect("/login")
-    return render_template("index.html")
+    creds = service_account.Credentials.from_service_account_info(
+        json.loads(raw_json),
+        scopes=['https://www.googleapis.com/auth/drive']
+    )
 
+    service = build('drive', 'v3', credentials=creds)
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        if request.form.get("password") == PASSWORD:
-            session["logged_in"] = True
-            return redirect("/")
-    return render_template("login.html")
+except Exception:
+    auth_error = traceback.format_exc()
 
+# ================= NAME =================
+def extract_name(filename):
+    try:
+        name = filename.replace("Call recording ", "", 1)
+        name = name.split("_")[0]
+        name = name.replace("#", "")
+        name = " ".join(name.split())
+        return name.strip()
+    except:
+        return filename
 
-@app.route("/api/recordings")
-def api_recordings():
-    page = int(request.args.get("page", 1))
-    date = request.args.get("date")
+# ================= DATE =================
+def extract_datetime(filename):
+    try:
+        match = re.search(r"_(\d{6})_(\d{6})", filename)
+        if match:
+            return datetime.strptime(match.group(1)+match.group(2), "%y%m%d%H%M%S")
+    except:
+        return None
 
-    per_page = 200
-    data = get_recordings()
+# ================= PROCESS =================
+def process_files(files, selected_customer=None):
+    processed = []
+    customers = set()
 
-    if date:
-        data = [d for d in data if d["date"] == date]
+    for f in files:
+        name = extract_name(f['name'])
+        dt = extract_datetime(f['name'])
 
-    start = (page - 1) * per_page
-    end = start + per_page
+        customers.add(name)
 
-    return jsonify({
-        "data": data[start:end],
-        "has_more": end < len(data)
-    })
+        if selected_customer and name != selected_customer:
+            continue
 
+        f['clean_name'] = name
+        f['dt_obj'] = dt
 
+        if dt:
+            today = datetime.now().date()
+            if dt.date() == today:
+                label = "Today"
+            elif dt.date() == today - timedelta(days=1):
+                label = "Yesterday"
+            else:
+                label = dt.strftime("%d %b %Y")
+
+            f['dt'] = f"{label} • {dt.strftime('%I:%M %p')}"
+        else:
+            f['dt'] = ""
+
+        processed.append(f)
+
+    processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
+
+    return processed, sorted(customers)
+
+# ================= STREAM =================
+@app.route("/stream/<file_id>")
+def stream(file_id):
+    request_drive = service.files().get_media(fileId=file_id)
+    return Response(request_drive.execute(), mimetype="audio/mp4")
+
+# ================= MAIN =================
+@app.route("/")
+def index():
+    try:
+        if auth_error:
+            return f"<pre>{auth_error}</pre>"
+
+        selected_customer = request.args.get("customer")
+
+        results = service.files().list(
+            q=f"'{FOLDER_ID}' in parents and trashed=false",
+            fields="files(id, name)",
+            pageSize=1000
+        ).execute()
+
+        files, customers = process_files(results.get('files', []), selected_customer)
+
+        html = """
+        <html>
+        <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <style>
+        body {
+            margin:0;
+            font-family: "Segoe UI", sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: white;
+        }
+
+        .header {
+            padding:18px;
+            font-size:22px;
+            font-weight:bold;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+        }
+
+        .customers {
+            display:flex;
+            overflow-x:auto;
+            padding:12px;
+            gap:10px;
+        }
+
+        .cust {
+            padding:8px 14px;
+            border-radius:25px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
+            color:white;
+            text-decoration:none;
+            font-size:14px;
+        }
+
+        .cust:hover {
+            background:#00a884;
+        }
+
+        .active {
+            background:#00e5c3;
+            color:black;
+            font-weight:bold;
+        }
+
+        .msg {
+            margin:15px;
+            padding:18px;
+            border-radius:20px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            transition: 0.2s;
+        }
+
+        .msg:hover {
+            transform: scale(1.01);
+        }
+
+        .name {
+            font-size:19px;
+            font-weight:700;
+        }
+
+        .time {
+            font-size:14px;
+            font-weight:600;
+            color:#d4f5ee;
+            margin-top:5px;
+        }
+
+        audio {
+            width:100%;
+            margin-top:12px;
+            border-radius:15px;
+        }
+
+        </style>
+        </head>
+
+        <body>
+
+        <div class="header">📞 TEAM LALA CALLS</div>
+
+        <div class="customers">
+            <a class="cust" href="/">All</a>
+            {% for c in customers %}
+                <a class="cust {% if c==selected_customer %}active{% endif %}" href="/?customer={{c}}">
+                    {{c}}
+                </a>
+            {% endfor %}
+        </div>
+
+        {% for f in files %}
+        <div class="msg">
+            <div class="name">{{f.clean_name}}</div>
+            <div class="time">{{f.dt}}</div>
+
+            <audio controls preload="none" onplay="pauseOthers(this)">
+                <source src="/stream/{{f.id}}" type="audio/mp4">
+            </audio>
+        </div>
+        {% endfor %}
+
+        <script>
+        function pauseOthers(current){
+            document.querySelectorAll("audio").forEach(a=>{
+                if(a!==current){a.pause();}
+            });
+        }
+        </script>
+
+        </body>
+        </html>
+        """
+
+        return render_template_string(html, files=files, customers=customers, selected_customer=selected_customer)
+
+    except Exception:
+        return f"<pre>{traceback.format_exc()}</pre>"
+
+# ================= RUN =================
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
