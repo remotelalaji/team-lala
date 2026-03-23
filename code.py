@@ -9,19 +9,19 @@ from flask import Flask, request, render_template_string
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 app = Flask(__name__)
 
 # ================== CONFIG ==================
 FOLDER_ID = "1n78FKBkQHvdqcTjOap9yUB1f_G0JsjrR"
-PER_PAGE = 100
 
 # ================== GOOGLE DRIVE AUTH ==================
 try:
     raw_json = os.environ.get("SERVICE_ACCOUNT_JSON")
 
     if not raw_json:
-        raise Exception("SERVICE_ACCOUNT_JSON not found")
+        raise Exception("❌ SERVICE_ACCOUNT_JSON not found")
 
     SERVICE_ACCOUNT_INFO = json.loads(raw_json)
 
@@ -38,21 +38,34 @@ except Exception as e:
 
 # ================== GET FILES ==================
 def get_files():
-    results = service.files().list(
-        q=f"'{FOLDER_ID}' in parents",
-        fields="files(id, name, mimeType)",
-        pageSize=1000,
-        supportsAllDrives=True,
-        includeItemsFromAllDrives=True
-    ).execute()
+    try:
+        results = service.files().list(
+            q=f"'{FOLDER_ID}' in parents",
+            fields="files(id, name, mimeType)",
+            pageSize=100,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True
+        ).execute()
 
-    files = results.get('files', [])
+        files = results.get('files', [])
 
-    names = []
-    for f in files:
-        names.append(f['name'])
+        names = [f['name'] for f in files]
 
-    return sorted(names, reverse=True)
+        return names
+
+    except HttpError as e:
+        return f"""
+🔥 GOOGLE DRIVE ERROR
+
+Status Code: {e.resp.status}
+
+Details:
+{e.content.decode() if hasattr(e.content, 'decode') else str(e)}
+
+"""
+
+    except Exception:
+        return traceback.format_exc()
 
 # ================== MAIN ==================
 @app.route("/")
@@ -62,6 +75,9 @@ def index():
             return f"<pre>AUTH ERROR:\n{auth_error}</pre>"
 
         files = get_files()
+
+        if isinstance(files, str):
+            return f"<pre>{files}</pre>"
 
         html = """
         <html>
@@ -74,7 +90,7 @@ def index():
         </head>
         <body>
 
-        <h2>📂 Files List (TEST MODE)</h2>
+        <h2>📂 Files List</h2>
 
         {% for f in files %}
             <div class="card">{{f}}</div>
@@ -86,7 +102,7 @@ def index():
 
         return render_template_string(html, files=files)
 
-    except Exception as e:
+    except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
 # ================== RUN ==================
