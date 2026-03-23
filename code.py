@@ -8,9 +8,10 @@ from googleapiclient.discovery import build
 
 app = Flask(__name__)
 
-FOLDER_ID = "1n78FKBkQHvdqcTjOap9yUB1f_G0JsjrR"
+# ================== CONFIG ==================
+FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
-# ================= SAFE INIT =================
+# ================== AUTH ==================
 service = None
 auth_error = None
 
@@ -33,31 +34,68 @@ except Exception:
     auth_error = traceback.format_exc()
 
 
-# ================= ROUTE =================
-@app.route("/")
-def index():
+# ================== GET FILES ==================
+def get_files():
     try:
-        if auth_error:
-            return f"<pre>AUTH ERROR:\n{auth_error}</pre>"
-
         results = service.files().list(
-            q=f"'{FOLDER_ID}' in parents",
-            fields="files(name)",
-            pageSize=20,
-            supportsAllDrives=True,
-            includeItemsFromAllDrives=True,
-            corpora="allDrives"
+            q="trashed=false",
+            fields="files(id, name, parents)",
+            pageSize=100
         ).execute()
 
         files = results.get('files', [])
 
-        return "<br>".join([f['name'] for f in files]) or "No files found"
+        filtered = []
+        for f in files:
+            if FOLDER_ID in f.get('parents', []):
+                filtered.append(f['name'])
+
+        return filtered
+
+    except Exception:
+        return traceback.format_exc()
+
+
+# ================== ROUTE ==================
+@app.route("/")
+def index():
+    try:
+        if auth_error:
+            return f"<pre>{auth_error}</pre>"
+
+        files = get_files()
+
+        if isinstance(files, str):
+            return f"<pre>{files}</pre>"
+
+        html = """
+        <html>
+        <head>
+            <title>TEAM LALA</title>
+            <style>
+                body {background:#0b1f2a;color:white;font-family:sans-serif;}
+                .card {background:#123544;padding:10px;margin:10px;border-radius:8px;}
+            </style>
+        </head>
+        <body>
+
+        <h2>📂 Files List (FINAL)</h2>
+
+        {% for f in files %}
+            <div class="card">{{f}}</div>
+        {% endfor %}
+
+        </body>
+        </html>
+        """
+
+        return render_template_string(html, files=files)
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-# ================= RUN =================
+# ================== RUN ==================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
