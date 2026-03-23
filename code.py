@@ -1,15 +1,19 @@
 import os
 import json
 import traceback
-from flask import Flask, render_template_string
+import io
 
+from flask import Flask, render_template_string, send_file
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 
 app = Flask(__name__)
 
+# ================== CONFIG ==================
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
+# ================== AUTH ==================
 service = None
 auth_error = None
 
@@ -32,6 +36,7 @@ except Exception:
     auth_error = traceback.format_exc()
 
 
+# ================== GET FILES ==================
 def get_files():
     try:
         results = service.files().list(
@@ -40,12 +45,33 @@ def get_files():
             pageSize=100
         ).execute()
 
-        return [f['name'] for f in results.get('files', [])]
+        return results.get('files', [])
 
     except Exception:
         return traceback.format_exc()
 
 
+# ================== PLAY AUDIO ==================
+@app.route("/play/<file_id>")
+def play(file_id):
+    try:
+        request_drive = service.files().get_media(fileId=file_id)
+
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request_drive)
+
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+
+        fh.seek(0)
+        return send_file(fh, mimetype="audio/mpeg")
+
+    except Exception:
+        return f"<pre>{traceback.format_exc()}</pre>"
+
+
+# ================== MAIN ==================
 @app.route("/")
 def index():
     try:
@@ -57,12 +83,41 @@ def index():
         if isinstance(files, str):
             return f"<pre>{files}</pre>"
 
-        return "<br>".join(files) if files else "No files found"
+        html = """
+        <html>
+        <head>
+            <title>TEAM LALA</title>
+            <style>
+                body {background:#0b1f2a;color:white;font-family:sans-serif;}
+                .card {background:#123544;padding:15px;margin:10px;border-radius:10px;}
+                audio {width:100%;}
+            </style>
+        </head>
+        <body>
+
+        <h2>🎧 Call Recordings</h2>
+
+        {% for f in files %}
+        <div class="card">
+            <b>{{f.name}}</b><br><br>
+
+            <audio controls>
+                <source src="/play/{{f.id}}">
+            </audio>
+        </div>
+        {% endfor %}
+
+        </body>
+        </html>
+        """
+
+        return render_template_string(html, files=files)
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
+# ================== RUN ==================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
