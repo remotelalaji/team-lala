@@ -46,12 +46,10 @@ def extract_datetime(filename):
         if match:
             return datetime.strptime(match.group(1)+match.group(2), "%y%m%d%H%M%S")
     except:
-        pass
-    return None
+        return None
 
 # ================= PROCESS =================
 def process_files(files, selected_customer=None):
-
     processed = []
     customers = set()
 
@@ -76,7 +74,7 @@ def process_files(files, selected_customer=None):
             else:
                 label = dt.strftime("%d %b %Y")
 
-            f['dt'] = f"{label} | {dt.strftime('%I:%M %p')}"
+            f['dt'] = f"{label} • {dt.strftime('%I:%M %p')}"
         else:
             f['dt'] = ""
 
@@ -116,18 +114,18 @@ def index():
 
         <style>
         body {
-            background: linear-gradient(135deg, #0b141a, #111b21);
-            color: white;
+            margin:0;
             font-family: "Segoe UI", sans-serif;
-            margin: 0;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: white;
         }
 
         .header {
-            background: rgba(32,44,51,0.9);
-            backdrop-filter: blur(10px);
-            padding: 18px;
-            font-size: 20px;
-            font-weight: bold;
+            padding:18px;
+            font-size:22px;
+            font-weight:bold;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(12px);
             position: sticky;
             top: 0;
         }
@@ -135,47 +133,62 @@ def index():
         .customers {
             display:flex;
             overflow-x:auto;
-            padding:10px;
-            background: rgba(0,0,0,0.4);
-            backdrop-filter: blur(8px);
+            padding:12px;
+            gap:10px;
         }
 
         .cust {
             padding:8px 14px;
-            margin-right:8px;
-            background:#1f2c33;
-            border-radius:20px;
-            text-decoration:none;
+            border-radius:25px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
             color:white;
+            text-decoration:none;
             font-size:14px;
         }
 
-        .active {
+        .cust:hover {
             background:#00a884;
         }
 
+        .active {
+            background:#00e5c3;
+            color:black;
+            font-weight:bold;
+        }
+
         .msg {
-            background: linear-gradient(145deg, #075e54, #0b8f75);
-            margin:14px;
-            padding:16px;
-            border-radius:16px;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+            margin:15px;
+            padding:18px;
+            border-radius:20px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            transition: 0.2s;
+        }
+
+        .msg:hover {
+            transform: scale(1.01);
         }
 
         .name {
-            font-size:18px;
+            font-size:19px;
             font-weight:700;
         }
 
         .time {
-            font-size:12px;
-            color:#d1d1d1;
+            font-size:14px;
+            font-weight:600;
+            color:#d4f5ee;
+            margin-top:5px;
         }
 
         audio {
             width:100%;
-            margin-top:10px;
+            margin-top:12px;
+            border-radius:15px;
         }
+
         </style>
         </head>
 
@@ -220,7 +233,7 @@ def index():
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
-
+# ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
