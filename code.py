@@ -80,9 +80,13 @@ def process_files(files, selected_customer=None):
 
         processed.append(f)
 
+    # Sort calls (latest first)
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
 
-    return processed, sorted(customers)
+    # ✅ FIX: Proper alphabetical sorting
+    customers = sorted(customers, key=lambda x: x.strip().lower())
+
+    return processed, customers
 
 # ================= STREAM =================
 @app.route("/stream/<file_id>")
@@ -118,6 +122,49 @@ def index():
             font-family: "Segoe UI", sans-serif;
             background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
             color: white;
+            display:flex;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width:260px;
+            height:100vh;
+            overflow-y:auto;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(12px);
+            padding:15px;
+        }
+
+        .sidebar h2 {
+            margin-bottom:15px;
+            font-size:18px;
+        }
+
+        .cust {
+            display:block;
+            padding:12px 14px;
+            margin-bottom:8px;
+            border-radius:10px;
+            text-decoration:none;
+            color:white;
+            font-weight:700;
+            font-size:15px;
+            background: rgba(255,255,255,0.08);
+        }
+
+        .cust:hover {
+            background:#00a884;
+        }
+
+        .active {
+            background:#00e5c3;
+            color:black;
+        }
+
+        /* ===== MAIN ===== */
+        .main {
+            flex:1;
+            overflow-y:auto;
         }
 
         .header {
@@ -130,33 +177,6 @@ def index():
             top: 0;
         }
 
-        .customers {
-            display:flex;
-            overflow-x:auto;
-            padding:12px;
-            gap:10px;
-        }
-
-        .cust {
-            padding:8px 14px;
-            border-radius:25px;
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(8px);
-            color:white;
-            text-decoration:none;
-            font-size:14px;
-        }
-
-        .cust:hover {
-            background:#00a884;
-        }
-
-        .active {
-            background:#00e5c3;
-            color:black;
-            font-weight:bold;
-        }
-
         .msg {
             margin:15px;
             padding:18px;
@@ -164,16 +184,11 @@ def index():
             background: rgba(255,255,255,0.1);
             backdrop-filter: blur(12px);
             box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-            transition: 0.2s;
-        }
-
-        .msg:hover {
-            transform: scale(1.01);
         }
 
         .name {
-            font-size:19px;
-            font-weight:700;
+            font-size:20px;
+            font-weight:800;
         }
 
         .time {
@@ -186,24 +201,45 @@ def index():
         audio {
             width:100%;
             margin-top:12px;
-            border-radius:15px;
         }
 
+        /* ===== MOBILE ===== */
+        @media (max-width: 768px) {
+            body {
+                flex-direction:column;
+            }
+            .sidebar {
+                width:100%;
+                height:auto;
+                display:flex;
+                overflow-x:auto;
+            }
+            .cust {
+                white-space:nowrap;
+            }
+        }
         </style>
         </head>
 
         <body>
 
-        <div class="header">📞 TEAM LALA CALLS</div>
+        <!-- ===== SIDEBAR ===== -->
+        <div class="sidebar">
+            <h2>Customers</h2>
 
-        <div class="customers">
             <a class="cust" href="/">All</a>
+
             {% for c in customers %}
                 <a class="cust {% if c==selected_customer %}active{% endif %}" href="/?customer={{c}}">
                     {{c}}
                 </a>
             {% endfor %}
         </div>
+
+        <!-- ===== MAIN CONTENT ===== -->
+        <div class="main">
+
+        <div class="header">📞 TEAM LALA CALLS</div>
 
         {% for f in files %}
         <div class="msg">
@@ -215,6 +251,8 @@ def index():
             </audio>
         </div>
         {% endfor %}
+
+        </div>
 
         <script>
         function pauseOthers(current){
