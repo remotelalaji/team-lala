@@ -49,16 +49,6 @@ def extract_datetime(filename):
         pass
     return None
 
-# ================= GET FILES =================
-def get_all_files():
-    results = service.files().list(
-        q=f"'{FOLDER_ID}' in parents and trashed=false",
-        fields="files(id, name)",
-        pageSize=1000
-    ).execute()
-
-    return results.get('files', [])
-
 # ================= PROCESS =================
 def process_files(files, selected_customer=None):
 
@@ -111,8 +101,13 @@ def index():
 
         selected_customer = request.args.get("customer")
 
-        all_files = get_all_files()
-        files, customers = process_files(all_files, selected_customer)
+        results = service.files().list(
+            q=f"'{FOLDER_ID}' in parents and trashed=false",
+            fields="files(id, name)",
+            pageSize=1000
+        ).execute()
+
+        files, customers = process_files(results.get('files', []), selected_customer)
 
         html = """
         <html>
@@ -120,44 +115,73 @@ def index():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
         <style>
-        body {background:#0b141a;color:white;font-family:sans-serif;margin:0;}
+        body {
+            background: linear-gradient(135deg, #0b141a, #111b21);
+            color: white;
+            font-family: "Segoe UI", sans-serif;
+            margin: 0;
+        }
 
-        .header {background:#202c33;padding:15px;font-size:18px;}
+        .header {
+            background: rgba(32,44,51,0.9);
+            backdrop-filter: blur(10px);
+            padding: 18px;
+            font-size: 20px;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
 
         .customers {
             display:flex;
             overflow-x:auto;
             padding:10px;
-            background:#111;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
         }
 
         .cust {
-            padding:8px 12px;
+            padding:8px 14px;
             margin-right:8px;
-            background:#005c4b;
+            background:#1f2c33;
             border-radius:20px;
             text-decoration:none;
             color:white;
-            white-space:nowrap;
+            font-size:14px;
         }
 
         .active {
-            background:#ff9800;
+            background:#00a884;
         }
 
-        .msg {background:#005c4b;margin:12px;padding:12px;border-radius:10px;}
+        .msg {
+            background: linear-gradient(145deg, #075e54, #0b8f75);
+            margin:14px;
+            padding:16px;
+            border-radius:16px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+        }
 
-        .name {font-weight:bold;font-size:18px;}
+        .name {
+            font-size:18px;
+            font-weight:700;
+        }
 
-        .time {font-size:12px;color:#ccc;}
+        .time {
+            font-size:12px;
+            color:#d1d1d1;
+        }
 
-        audio {width:100%;margin-top:5px;}
+        audio {
+            width:100%;
+            margin-top:10px;
+        }
         </style>
         </head>
 
         <body>
 
-        <div class="header">📱 TEAM LALA</div>
+        <div class="header">📞 TEAM LALA CALLS</div>
 
         <div class="customers">
             <a class="cust" href="/">All</a>
