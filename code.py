@@ -3,15 +3,94 @@ import json
 import traceback
 import re
 from datetime import datetime, timedelta
-from flask import Flask, render_template_string, request, Response
+from flask import Flask, render_template_string, request, Response, redirect, session, url_for
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"  # change in production
 
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
-# ================= AUTH =================
+APP_PASSWORD = "669900"
+
+# ================= AUTH (LOGIN) =================
+def login_required(f):
+    def wrapper(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect("/login")
+        return f(*args, **kwargs)
+    wrapper.__name__ = f.__name__
+    return wrapper
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+
+    if request.method == "POST":
+        if request.form.get("password") == APP_PASSWORD:
+            session["logged_in"] = True
+            return redirect("/")
+        else:
+            error = "Wrong Password"
+
+    return render_template_string("""
+    <html>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+    body {
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        height:100vh;
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        font-family:Segoe UI;
+        color:white;
+    }
+    .box {
+        background:rgba(255,255,255,0.1);
+        padding:30px;
+        border-radius:20px;
+        text-align:center;
+    }
+    input {
+        padding:10px;
+        width:200px;
+        border-radius:10px;
+        border:none;
+        margin-top:10px;
+    }
+    button {
+        margin-top:15px;
+        padding:10px 20px;
+        border:none;
+        border-radius:10px;
+        background:#00e5c3;
+        font-weight:bold;
+    }
+    </style>
+    </head>
+    <body>
+
+    <form method="POST" class="box">
+        <h2>Enter Password</h2>
+        <input type="password" name="password" placeholder="Password" required>
+        <br>
+        <button type="submit">Login</button>
+        <p style="color:red;">{{error}}</p>
+    </form>
+
+    </body>
+    </html>
+    """, error=error)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+# ================= GOOGLE DRIVE =================
 service = None
 auth_error = None
 
@@ -81,198 +160,99 @@ def process_files(files, selected_customer=None):
         processed.append(f)
 
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
-
-    # ✅ Proper alphabetical sorting
     customers = sorted(customers, key=lambda x: x.strip().lower())
 
     return processed, customers
 
 # ================= STREAM =================
 @app.route("/stream/<file_id>")
+@login_required
 def stream(file_id):
     request_drive = service.files().get_media(fileId=file_id)
     return Response(request_drive.execute(), mimetype="audio/mp4")
 
 # ================= MAIN =================
 @app.route("/")
+@login_required
 def index():
-    try:
-        if auth_error:
-            return f"<pre>{auth_error}</pre>"
+    if auth_error:
+        return "<pre>Auth Error</pre>"
 
-        selected_customer = request.args.get("customer")
+    selected_customer = request.args.get("customer")
 
-        results = service.files().list(
-            q=f"'{FOLDER_ID}' in parents and trashed=false",
-            fields="files(id, name)",
-            pageSize=1000
-        ).execute()
+    results = service.files().list(
+        q=f"'{FOLDER_ID}' in parents and trashed=false",
+        fields="files(id, name)",
+        pageSize=1000
+    ).execute()
 
-        files, customers = process_files(results.get('files', []), selected_customer)
+    files, customers = process_files(results.get('files', []), selected_customer)
 
-        html = """
-        <html>
-        <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    return render_template_string("""
+    <html>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+    body {
+        margin:0;
+        font-family:Segoe UI;
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        color:white;
+    }
+    .header {
+        padding:15px;
+        font-weight:bold;
+    }
+    .custs {
+        display:flex;
+        overflow-x:auto;
+        gap:10px;
+        padding:10px;
+    }
+    .cust {
+        padding:10px 15px;
+        background:rgba(255,255,255,0.1);
+        border-radius:20px;
+        text-decoration:none;
+        color:white;
+        font-weight:bold;
+    }
+    .msg {
+        margin:15px;
+        padding:15px;
+        background:rgba(255,255,255,0.1);
+        border-radius:15px;
+    }
+    </style>
+    </head>
+    <body>
 
-        <style>
-        body {
-            margin:0;
-            font-family: "Segoe UI", sans-serif;
-            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-            color: white;
-            display:flex;
-        }
+    <div class="header">
+        📞 TEAM LALA CALLS |
+        <a href="/logout" style="color:#00e5c3;">Logout</a>
+    </div>
 
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            width:260px;
-            height:100vh;
-            overflow-y:auto;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(12px);
-            padding:15px;
-        }
-
-        .cust {
-            display:block;
-            padding:12px 14px;
-            margin-bottom:8px;
-            border-radius:10px;
-            text-decoration:none;
-            color:white;
-            font-weight:700;
-            font-size:15px;
-            background: rgba(255,255,255,0.08);
-        }
-
-        .cust:hover {
-            background:#00a884;
-        }
-
-        .active {
-            background:#00e5c3;
-            color:black;
-        }
-
-        /* ===== MAIN ===== */
-        .main {
-            flex:1;
-            overflow-y:auto;
-            padding-bottom:50px;
-        }
-
-        .header {
-            padding:18px;
-            font-size:22px;
-            font-weight:bold;
-            background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(12px);
-            position: sticky;
-            top: 0;
-        }
-
-        .msg {
-            margin:15px;
-            padding:18px;
-            border-radius:20px;
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(12px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-        }
-
-        .name {
-            font-size:20px;
-            font-weight:800;
-        }
-
-        .time {
-            font-size:14px;
-            font-weight:600;
-            color:#d4f5ee;
-            margin-top:5px;
-        }
-
-        audio {
-            width:100%;
-            margin-top:12px;
-        }
-
-        /* ===== MOBILE FIX ===== */
-        @media (max-width: 768px) {
-
-            body {
-                display:block;
-            }
-
-            .sidebar {
-                width:100%;
-                height:auto;
-                display:flex;
-                overflow-x:auto;
-                gap:10px;
-            }
-
-            .cust {
-                white-space:nowrap;
-                flex-shrink:0;
-            }
-
-            .main {
-                width:100%;
-            }
-        }
-        </style>
-        </head>
-
-        <body>
-
-        <!-- SIDEBAR -->
-        <div class="sidebar">
-            <a class="cust" href="/">All</a>
-
-            {% for c in customers %}
-                <a class="cust {% if c==selected_customer %}active{% endif %}" href="/?customer={{c}}">
-                    {{c}}
-                </a>
-            {% endfor %}
-        </div>
-
-        <!-- MAIN -->
-        <div class="main">
-
-        <div class="header">📞 TEAM LALA CALLS</div>
-
-        {% for f in files %}
-        <div class="msg">
-            <div class="name">{{f.clean_name}}</div>
-            <div class="time">{{f.dt}}</div>
-
-            <audio controls preload="none" onplay="pauseOthers(this)">
-                <source src="/stream/{{f.id}}" type="audio/mp4">
-            </audio>
-        </div>
+    <div class="custs">
+        <a class="cust" href="/">All</a>
+        {% for c in customers %}
+        <a class="cust" href="/?customer={{c}}">{{c}}</a>
         {% endfor %}
+    </div>
 
-        </div>
+    {% for f in files %}
+    <div class="msg">
+        <b>{{f.clean_name}}</b><br>
+        {{f.dt}}
+        <audio controls style="width:100%;">
+            <source src="/stream/{{f.id}}" type="audio/mp4">
+        </audio>
+    </div>
+    {% endfor %}
 
-        <script>
-        function pauseOthers(current){
-            document.querySelectorAll("audio").forEach(a=>{
-                if(a!==current){a.pause();}
-            });
-        }
-        </script>
-
-        </body>
-        </html>
-        """
-
-        return render_template_string(html, files=files, customers=customers, selected_customer=selected_customer)
-
-    except Exception:
-        return f"<pre>{traceback.format_exc()}</pre>"
-
+    </body>
+    </html>
+    """, files=files, customers=customers)
+    
 # ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
