@@ -83,7 +83,7 @@ def extract_datetime(filename):
         return None
 
 # ================= PROCESS =================
-def process_files(files, selected_customer=None):
+def process_files(files, selected_customer=None, selected_date=None):
     processed = []
     customers = set()
 
@@ -93,8 +93,14 @@ def process_files(files, selected_customer=None):
 
         customers.add(name)
 
+        # customer filter
         if selected_customer and name != selected_customer:
             continue
+
+        # ✅ date filter
+        if selected_date and dt:
+            if dt.strftime("%Y-%m-%d") != selected_date:
+                continue
 
         f['clean_name'] = name
         f['dt_obj'] = dt
@@ -115,8 +121,6 @@ def process_files(files, selected_customer=None):
         processed.append(f)
 
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
-
-    # ✅ alphabetical sorting
     customers = sorted(customers, key=lambda x: x.lower())
 
     return processed, customers
@@ -135,6 +139,7 @@ def stream(file_id):
 @login_required
 def index():
     selected_customer = request.args.get("customer")
+    selected_date = request.args.get("date")
 
     results = service.files().list(
         q=f"'{FOLDER_ID}' in parents and trashed=false",
@@ -142,13 +147,18 @@ def index():
         pageSize=1000
     ).execute()
 
-    files, customers = process_files(results.get('files', []), selected_customer)
+    files, customers = process_files(
+        results.get('files', []),
+        selected_customer,
+        selected_date
+    )
 
     return render_template_string("""
     <html>
     <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+
     body {
         margin:0;
         font-family:sans-serif;
@@ -156,17 +166,28 @@ def index():
         color:white;
     }
 
+    /* ===== HEADER ===== */
     .header {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
         padding:15px;
+        background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(10px);
         font-weight:bold;
     }
 
     /* ===== CUSTOMER BAR ===== */
     .custs {
+        position: sticky;
+        top: 55px;
+        z-index: 999;
         display:flex;
         overflow-x:auto;
         gap:10px;
         padding:10px;
+        background: rgba(0,0,0,0.5);
+        backdrop-filter: blur(10px);
     }
 
     .cust {
@@ -176,11 +197,7 @@ def index():
         text-decoration:none;
         color:white;
         font-weight:bold;
-
-        /* ✅ FIX: SINGLE LINE */
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
         flex-shrink: 0;
     }
 
@@ -188,7 +205,7 @@ def index():
         background:#00a884;
     }
 
-    /* ===== CALL CARD ===== */
+    /* ===== CARDS ===== */
     .msg {
         margin:15px;
         padding:15px;
@@ -200,6 +217,14 @@ def index():
         width:100%;
         margin-top:10px;
     }
+
+    input, button {
+        border-radius:8px;
+        border:none;
+        padding:5px;
+        margin-left:5px;
+    }
+
     </style>
     </head>
 
@@ -208,6 +233,12 @@ def index():
     <div class="header">
         📞 TEAM LALA CALLS |
         <a href="/logout" style="color:#00e5c3;">Logout</a>
+
+        <!-- DATE FILTER -->
+        <form method="GET" style="display:inline;">
+            <input type="date" name="date">
+            <button>Filter</button>
+        </form>
     </div>
 
     <!-- CUSTOMER FILTER -->
