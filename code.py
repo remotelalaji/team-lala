@@ -39,7 +39,7 @@ def extract_name(filename):
     except:
         return filename
 
-# ================= DATE PARSE =================
+# ================= DATE =================
 def extract_datetime(filename):
     try:
         match = re.search(r"_(\d{6})_(\d{6})", filename)
@@ -69,11 +69,9 @@ def get_files(page_token=None, search="", start=None, end=None):
         name = extract_name(f['name'])
         dt = extract_datetime(f['name'])
 
-        # name filter
         if search and search.lower() not in name.lower():
             continue
 
-        # date filter
         if start and dt and dt < start:
             continue
         if end and dt and dt > end:
@@ -82,7 +80,6 @@ def get_files(page_token=None, search="", start=None, end=None):
         f['clean_name'] = name
         f['dt_obj'] = dt
 
-        # WhatsApp style labels
         if dt:
             today = datetime.now().date()
             if dt.date() == today:
@@ -125,9 +122,6 @@ def index():
         yesterday = request.args.get("yesterday")
         single = request.args.get("single")
 
-        start = request.args.get("start")
-        end = request.args.get("end")
-
         start_dt = None
         end_dt = None
 
@@ -144,10 +138,6 @@ def index():
         elif single:
             start_dt = datetime.strptime(single, "%Y-%m-%d")
             end_dt = start_dt + timedelta(days=1)
-
-        else:
-            start_dt = datetime.strptime(start, "%Y-%m-%d") if start else None
-            end_dt = datetime.strptime(end, "%Y-%m-%d") if end else None
 
         files, next_token = get_files(token, search, start_dt, end_dt)
 
@@ -203,7 +193,7 @@ def index():
 
         .name {
             font-family: Calibri, "Segoe UI", Arial, sans-serif;
-            font-weight: bold;
+            font-weight:bold;
             font-size:18px;
         }
 
@@ -227,7 +217,6 @@ def index():
             text-decoration:none;
             font-size:16px;
         }
-
         </style>
         </head>
 
@@ -243,11 +232,6 @@ def index():
 
                 <button name="today" value="1">Today</button>
                 <button name="yesterday" value="1">Yesterday</button>
-
-                <br><br>
-
-                From <input type="date" name="start">
-                To <input type="date" name="end">
 
                 <button>Apply</button>
             </form>
