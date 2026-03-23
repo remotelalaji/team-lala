@@ -2,6 +2,7 @@ import os
 import json
 import traceback
 import re
+import math
 from datetime import datetime, timedelta
 from flask import Flask, render_template_string, request, Response
 from google.oauth2 import service_account
@@ -9,8 +10,8 @@ from googleapiclient.discovery import build
 
 app = Flask(__name__)
 
-# ================= CONFIG =================
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
+PER_PAGE = 50
 
 # ================= AUTH =================
 service = None
@@ -29,8 +30,7 @@ try:
 except Exception:
     auth_error = traceback.format_exc()
 
-
-# ================= NAME CLEAN =================
+# ================= NAME =================
 def extract_name(filename):
     try:
         name = filename.replace("Call recording ", "", 1)
@@ -41,8 +41,7 @@ def extract_name(filename):
     except:
         return filename
 
-
-# ================= DATE PARSE =================
+# ================= DATE =================
 def extract_datetime(filename):
     try:
         match = re.search(r"_(\d{6})_(\d{6})", filename)
@@ -52,32 +51,27 @@ def extract_datetime(filename):
         pass
     return None
 
-
-# ================= GET FILES =================
-def get_files(page_token=None, search="", start=None, end=None):
-
+# ================= GET ALL FILES =================
+def get_all_files():
     results = service.files().list(
         q=f"'{FOLDER_ID}' in parents and trashed=false",
-        fields="nextPageToken, files(id, name)",
-        pageSize=50,
-        orderBy="createdTime desc",
-        pageToken=page_token
+        fields="files(id, name)",
+        pageSize=1000
     ).execute()
 
-    files = results.get('files', [])
-    next_token = results.get('nextPageToken')
+    return results.get('files', [])
 
+# ================= PROCESS =================
+def process_files(files, search, start, end):
     processed = []
 
     for f in files:
         name = extract_name(f['name'])
         dt = extract_datetime(f['name'])
 
-        # 🔍 search filter
         if search and search.lower() not in name.lower():
             continue
 
-        # 📅 date filter
         if start and dt and dt < start:
             continue
         if end and dt and dt > end:
@@ -86,7 +80,6 @@ def get_files(page_token=None, search="", start=None, end=None):
         f['clean_name'] = name
         f['dt_obj'] = dt
 
-        # 📅 WhatsApp style date
         if dt:
             today = datetime.now().date()
             if dt.date() == today:
@@ -102,21 +95,15 @@ def get_files(page_token=None, search="", start=None, end=None):
 
         processed.append(f)
 
-    # 🔥 latest first
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
 
-    return processed, next_token
-
+    return processed
 
 # ================= STREAM =================
 @app.route("/stream/<file_id>")
 def stream(file_id):
-    try:
-        request_drive = service.files().get_media(fileId=file_id)
-        return Response(request_drive.execute(), mimetype="audio/mp4")
-    except Exception:
-        return f"<pre>{traceback.format_exc()}</pre>"
-
+    request_drive = service.files().get_media(fileId=file_id)
+    return Response(request_drive.execute(), mimetype="audio/mp4")
 
 # ================= MAIN =================
 @app.route("/")
@@ -125,7 +112,7 @@ def index():
         if auth_error:
             return f"<pre>{auth_error}</pre>"
 
-        token = request.args.get("pageToken")
+        page = int(request.args.get("page", 1))
         search = request.args.get("search", "")
 
         today = request.args.get("today")
@@ -149,7 +136,14 @@ def index():
             start_dt = datetime.strptime(single, "%Y-%m-%d")
             end_dt = start_dt + timedelta(days=1)
 
-        files, next_token = get_files(token, search, start_dt, end_dt)
+        all_files = get_all_files()
+        processed = process_files(all_files, search, start_dt, end_dt)
+
+        total_pages = math.ceil(len(processed) / PER_PAGE)
+
+        start = (page - 1) * PER_PAGE
+        end = start + PER_PAGE
+        current_files = processed[start:end]
 
         html = """
         <html>
@@ -157,75 +151,39 @@ def index():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
         <style>
-        body {
-            background:#0b141a;
-            color:white;
-            font-family:sans-serif;
-            margin:0;
-            font-size:16px;
+        body {background:#0b141a;color:white;font-family:sans-serif;margin:0;}
+
+        .header {background:#202c33;padding:18px;font-size:20px;font-weight:bold;}
+
+        .filter {padding:10px;background:#111;}
+
+        input,button {
+            padding:10px;margin:5px;border-radius:8px;border:none;
         }
 
-        .header {
-            background:#202c33;
-            padding:18px;
-            font-size:20px;
-            font-weight:bold;
-        }
+        button {background:#00a884;color:white;}
 
-        .filter {
-            padding:10px;
-            background:#111;
-        }
+        .msg {background:#005c4b;margin:12px;padding:14px;border-radius:12px;}
 
-        input {
-            padding:10px;
-            margin:5px;
-            border-radius:8px;
-            border:none;
-            font-size:14px;
-        }
+        .name {font-weight:bold;font-size:18px;}
 
-        button {
-            padding:10px;
-            border:none;
-            border-radius:8px;
+        .time {font-size:13px;color:#ccc;}
+
+        audio {width:100%;margin-top:8px;}
+
+        .pagination {text-align:center;margin:20px;}
+
+        .page {
+            padding:8px 12px;
+            margin:2px;
             background:#00a884;
-            color:white;
-            font-size:14px;
-        }
-
-        .msg {
-            background:#005c4b;
-            margin:12px;
-            padding:14px;
-            border-radius:12px;
-        }
-
-        .name {
-            font-family: Calibri, "Segoe UI", Arial, sans-serif;
-            font-weight:bold;
-            font-size:18px;
-        }
-
-        .time {
-            font-size:13px;
-            color:#ccc;
-            margin-top:3px;
-        }
-
-        audio {
-            width:100%;
-            margin-top:8px;
-        }
-
-        .btn {
-            display:inline-block;
-            padding:14px 22px;
-            background:#00a884;
-            color:white;
-            border-radius:10px;
+            border-radius:6px;
             text-decoration:none;
-            font-size:16px;
+            color:white;
+        }
+
+        .active {
+            background:#ff9800;
         }
         </style>
         </head>
@@ -236,7 +194,7 @@ def index():
 
         <div class="filter">
             <form>
-                🔍 <input type="text" name="search" placeholder="Search name">
+                🔍 <input type="text" name="search">
 
                 📅 <input type="date" name="single">
 
@@ -258,13 +216,13 @@ def index():
         </div>
         {% endfor %}
 
-        {% if next_token %}
-        <div style="text-align:center;margin:20px;">
-            <a class="btn" href="/?pageToken={{next_token}}">
-                ➡ Next Page
+        <div class="pagination">
+        {% for p in range(1, total_pages+1) %}
+            <a class="page {% if p==page %}active{% endif %}" href="/?page={{p}}">
+                {{p}}
             </a>
+        {% endfor %}
         </div>
-        {% endif %}
 
         <script>
         function pauseOthers(current){
@@ -278,13 +236,12 @@ def index():
         </html>
         """
 
-        return render_template_string(html, files=files, next_token=next_token)
+        return render_template_string(html, files=current_files, page=page, total_pages=total_pages)
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-# ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
