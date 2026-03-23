@@ -10,22 +10,16 @@ from googleapiclient.http import MediaIoBaseDownload
 app = Flask(__name__)
 
 # ================== CONFIG ==================
-SERVICE_ACCOUNT_FILE = "service_account.json"
 FOLDER_ID = "1n78FKBkQHvdqcTjOap9yUB1f_G0JsjrR"
 PER_PAGE = 100
 
-# ================== GOOGLE AUTH (FIXED 🔥) ==================
-if "GOOGLE_CREDENTIALS" in os.environ:
-    creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
-    creds = service_account.Credentials.from_service_account_info(
-        creds_dict,
-        scopes=['https://www.googleapis.com/auth/drive.readonly']
-    )
-else:
-    creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
-        scopes=['https://www.googleapis.com/auth/drive.readonly']
-    )
+# ================== GOOGLE AUTH ==================
+SERVICE_ACCOUNT_INFO = json.loads(os.environ["SERVICE_ACCOUNT_JSON"])
+
+creds = service_account.Credentials.from_service_account_info(
+    SERVICE_ACCOUNT_INFO,
+    scopes=['https://www.googleapis.com/auth/drive.readonly']
+)
 
 service = build('drive', 'v3', credentials=creds)
 
@@ -143,7 +137,6 @@ def index():
 
     return render_template_string(html, files=current_files, page=page, total=total_pages)
 
-# ================== RUN (FIXED PORT 🔥) ==================
+# ================== RUN ==================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000)
