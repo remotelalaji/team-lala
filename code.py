@@ -2,7 +2,7 @@ import os
 import json
 import traceback
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template_string, request, Response
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -28,14 +28,18 @@ try:
 except Exception:
     auth_error = traceback.format_exc()
 
-# ================= NAME =================
+# ================= NAME CLEAN =================
 def extract_name(filename):
     try:
-        return filename.replace("Call recording ", "", 1).split("_")[0].strip()
+        name = filename.replace("Call recording ", "", 1)
+        name = name.split("_")[0]
+        name = name.replace("#", "")
+        name = " ".join(name.split())
+        return name.strip()
     except:
         return filename
 
-# ================= DATE =================
+# ================= DATE PARSE =================
 def extract_datetime(filename):
     try:
         match = re.search(r"_(\d{6})_(\d{6})", filename)
@@ -65,21 +69,32 @@ def get_files(page_token=None, search="", start=None, end=None):
         name = extract_name(f['name'])
         dt = extract_datetime(f['name'])
 
-        # 🔍 NAME FILTER
+        # name filter
         if search and search.lower() not in name.lower():
             continue
 
-        # 📅 DATE FILTER
-        if start and dt:
-            if dt < start:
-                continue
-        if end and dt:
-            if dt > end:
-                continue
+        # date filter
+        if start and dt and dt < start:
+            continue
+        if end and dt and dt > end:
+            continue
 
         f['clean_name'] = name
         f['dt_obj'] = dt
-        f['dt'] = dt.strftime("%d %b %Y | %I:%M %p") if dt else ""
+
+        # WhatsApp style labels
+        if dt:
+            today = datetime.now().date()
+            if dt.date() == today:
+                label = "Today"
+            elif dt.date() == today - timedelta(days=1):
+                label = "Yesterday"
+            else:
+                label = dt.strftime("%d %b %Y")
+
+            f['dt'] = f"{label} | {dt.strftime('%I:%M %p')}"
+        else:
+            f['dt'] = ""
 
         processed.append(f)
 
@@ -105,11 +120,34 @@ def index():
 
         token = request.args.get("pageToken")
         search = request.args.get("search", "")
+
+        today = request.args.get("today")
+        yesterday = request.args.get("yesterday")
+        single = request.args.get("single")
+
         start = request.args.get("start")
         end = request.args.get("end")
 
-        start_dt = datetime.strptime(start, "%Y-%m-%d") if start else None
-        end_dt = datetime.strptime(end, "%Y-%m-%d") if end else None
+        start_dt = None
+        end_dt = None
+
+        if today:
+            now = datetime.now()
+            start_dt = datetime(now.year, now.month, now.day)
+            end_dt = start_dt + timedelta(days=1)
+
+        elif yesterday:
+            now = datetime.now()
+            start_dt = datetime(now.year, now.month, now.day) - timedelta(days=1)
+            end_dt = start_dt + timedelta(days=1)
+
+        elif single:
+            start_dt = datetime.strptime(single, "%Y-%m-%d")
+            end_dt = start_dt + timedelta(days=1)
+
+        else:
+            start_dt = datetime.strptime(start, "%Y-%m-%d") if start else None
+            end_dt = datetime.strptime(end, "%Y-%m-%d") if end else None
 
         files, next_token = get_files(token, search, start_dt, end_dt)
 
@@ -119,21 +157,77 @@ def index():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
         <style>
-        body {background:#0b141a;color:white;font-family:sans-serif;margin:0;}
+        body {
+            background:#0b141a;
+            color:white;
+            font-family:sans-serif;
+            margin:0;
+            font-size:16px;
+        }
 
-        .header {background:#202c33;padding:15px;font-size:18px;font-weight:bold;}
+        .header {
+            background:#202c33;
+            padding:18px;
+            font-size:20px;
+            font-weight:bold;
+        }
 
-        .filter {padding:10px;background:#111;}
-        input {padding:8px;margin:5px;border-radius:6px;border:none;}
+        .filter {
+            padding:10px;
+            background:#111;
+        }
 
-        .msg {background:#005c4b;margin:10px;padding:10px;border-radius:10px;}
+        input {
+            padding:10px;
+            margin:5px;
+            border-radius:8px;
+            border:none;
+            font-size:14px;
+        }
 
-        .name {font-size:16px;font-weight:bold;}
-        .time {font-size:12px;color:#ccc;}
+        button {
+            padding:10px;
+            border:none;
+            border-radius:8px;
+            background:#00a884;
+            color:white;
+            font-size:14px;
+        }
 
-        audio {width:100%;margin-top:5px;}
+        .msg {
+            background:#005c4b;
+            margin:12px;
+            padding:14px;
+            border-radius:12px;
+        }
 
-        .btn {padding:10px;background:#00a884;color:white;border-radius:8px;text-decoration:none;}
+        .name {
+            font-family: Calibri, "Segoe UI", Arial, sans-serif;
+            font-weight: bold;
+            font-size:18px;
+        }
+
+        .time {
+            font-size:13px;
+            color:#ccc;
+            margin-top:3px;
+        }
+
+        audio {
+            width:100%;
+            margin-top:8px;
+        }
+
+        .btn {
+            display:inline-block;
+            padding:14px 22px;
+            background:#00a884;
+            color:white;
+            border-radius:10px;
+            text-decoration:none;
+            font-size:16px;
+        }
+
         </style>
         </head>
 
@@ -143,11 +237,19 @@ def index():
 
         <div class="filter">
             <form>
-                🔍 <input type="text" name="search" placeholder="Search name" value="{{request.args.get('search','')}}">
-                📅 <input type="date" name="start">
-                to
-                <input type="date" name="end">
-                <button>Filter</button>
+                🔍 <input type="text" name="search" placeholder="Search name">
+
+                📅 <input type="date" name="single">
+
+                <button name="today" value="1">Today</button>
+                <button name="yesterday" value="1">Yesterday</button>
+
+                <br><br>
+
+                From <input type="date" name="start">
+                To <input type="date" name="end">
+
+                <button>Apply</button>
             </form>
         </div>
 
@@ -164,7 +266,7 @@ def index():
 
         {% if next_token %}
         <div style="text-align:center;margin:20px;">
-            <a class="btn" href="/?pageToken={{next_token}}&search={{request.args.get('search','')}}">
+            <a class="btn" href="/?pageToken={{next_token}}">
                 ➡ Next Page
             </a>
         </div>
