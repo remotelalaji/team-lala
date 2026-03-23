@@ -8,10 +8,8 @@ from googleapiclient.discovery import build
 
 app = Flask(__name__)
 
-# ================== CONFIG ==================
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
-# ================== AUTH ==================
 service = None
 auth_error = None
 
@@ -25,7 +23,7 @@ try:
 
     creds = service_account.Credentials.from_service_account_info(
         SERVICE_ACCOUNT_INFO,
-        scopes=['https://www.googleapis.com/auth/drive.readonly']
+        scopes=['https://www.googleapis.com/auth/drive']
     )
 
     service = build('drive', 'v3', credentials=creds)
@@ -34,29 +32,20 @@ except Exception:
     auth_error = traceback.format_exc()
 
 
-# ================== GET FILES ==================
 def get_files():
     try:
         results = service.files().list(
-            q="trashed=false",
-            fields="files(id, name, parents)",
+            q=f"'{FOLDER_ID}' in parents and trashed=false",
+            fields="files(id, name)",
             pageSize=100
         ).execute()
 
-        files = results.get('files', [])
-
-        filtered = []
-        for f in files:
-            if FOLDER_ID in f.get('parents', []):
-                filtered.append(f['name'])
-
-        return filtered
+        return [f['name'] for f in results.get('files', [])]
 
     except Exception:
         return traceback.format_exc()
 
 
-# ================== ROUTE ==================
 @app.route("/")
 def index():
     try:
@@ -68,34 +57,12 @@ def index():
         if isinstance(files, str):
             return f"<pre>{files}</pre>"
 
-        html = """
-        <html>
-        <head>
-            <title>TEAM LALA</title>
-            <style>
-                body {background:#0b1f2a;color:white;font-family:sans-serif;}
-                .card {background:#123544;padding:10px;margin:10px;border-radius:8px;}
-            </style>
-        </head>
-        <body>
-
-        <h2>📂 Files List (FINAL)</h2>
-
-        {% for f in files %}
-            <div class="card">{{f}}</div>
-        {% endfor %}
-
-        </body>
-        </html>
-        """
-
-        return render_template_string(html, files=files)
+        return "<br>".join(files) if files else "No files found"
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-# ================== RUN ==================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
