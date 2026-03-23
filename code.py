@@ -2,25 +2,22 @@ import os
 import json
 import traceback
 import re
-
-from flask import Flask, render_template_string, Response
+from datetime import datetime
+from flask import Flask, render_template_string, request, Response
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 app = Flask(__name__)
 
-# ================== CONFIG ==================
+# ================= CONFIG =================
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
-# ================== AUTH ==================
+# ================= AUTH =================
 service = None
 auth_error = None
 
 try:
     raw_json = os.environ.get("SERVICE_ACCOUNT_JSON")
-
-    if not raw_json:
-        raise Exception("SERVICE_ACCOUNT_JSON missing")
 
     creds = service_account.Credentials.from_service_account_info(
         json.loads(raw_json),
@@ -33,99 +30,140 @@ except Exception:
     auth_error = traceback.format_exc()
 
 
-# ================== NAME CLEAN ==================
+# ================= NAME CLEAN =================
 def extract_name(filename):
     try:
-        name_part = filename.replace("Call recording ", "", 1)
-        return name_part.split("_")[0].strip()
+        return filename.replace("Call recording ", "", 1).split("_")[0].strip()
     except:
         return filename
 
 
-# ================== GET FILES ==================
-def get_files():
+# ================= DATE PARSE =================
+def extract_datetime(filename):
+    try:
+        match = re.search(r"_(\d{6})_(\d{6})", filename)
+        if match:
+            date_raw = match.group(1)
+            time_raw = match.group(2)
+
+            dt = datetime.strptime(date_raw + time_raw, "%d%m%y%H%M%S")
+            return dt
+    except:
+        pass
+    return None
+
+
+# ================= GET FILES =================
+def get_files(page_token=None):
+
     results = service.files().list(
         q=f"'{FOLDER_ID}' in parents and trashed=false",
-        fields="files(id, name)",
-        pageSize=100
+        fields="nextPageToken, files(id, name)",
+        pageSize=50,
+        orderBy="createdTime desc",
+        pageToken=page_token
     ).execute()
 
     files = results.get('files', [])
+    next_token = results.get('nextPageToken')
+
+    processed = []
 
     for f in files:
-        f['clean_name'] = extract_name(f['name'])
+        name = f['name']
+        dt = extract_datetime(name)
 
-    return files
+        f['clean_name'] = extract_name(name)
+        f['dt_obj'] = dt
+        f['dt'] = dt.strftime("%d %b %Y | %I:%M %p") if dt else ""
+
+        processed.append(f)
+
+    # 🔥 latest first
+    processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
+
+    return processed, next_token
 
 
-# ================== STREAM ==================
+# ================= STREAM =================
 @app.route("/stream/<file_id>")
 def stream(file_id):
     try:
-        request = service.files().get_media(fileId=file_id)
-
-        def generate():
-            yield request.execute()
-
-        return Response(generate(), mimetype="audio/mp4")
-
+        request_drive = service.files().get_media(fileId=file_id)
+        return Response(request_drive.execute(), mimetype="audio/mp4")
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-# ================== MAIN ==================
+# ================= MAIN =================
 @app.route("/")
 def index():
     try:
         if auth_error:
             return f"<pre>{auth_error}</pre>"
 
-        files = get_files()
+        token = request.args.get("pageToken")
+
+        files, next_token = get_files(token)
 
         html = """
         <html>
         <head>
-            <title>TEAM LALA</title>
+        <title>TEAM LALA</title>
 
-            <style>
-                body {
-                    background:#0b141a;
-                    color:white;
-                    font-family:Arial;
-                    margin:0;
-                }
+        <style>
+        body {
+            background:#0b141a;
+            color:white;
+            font-family:sans-serif;
+            margin:0;
+        }
 
-                .header {
-                    background:#202c33;
-                    padding:15px;
-                    font-size:18px;
-                    font-weight:bold;
-                }
+        .header {
+            background:#202c33;
+            padding:15px;
+            font-size:18px;
+            font-weight:bold;
+        }
 
-                .chat {
-                    padding:10px;
-                }
+        .chat {
+            padding:10px;
+            max-height:90vh;
+            overflow-y:auto;
+        }
 
-                .msg {
-                    background:#005c4b;
-                    margin:10px 0;
-                    padding:10px 12px;
-                    border-radius:10px;
-                    max-width:80%;
-                    position:relative;
-                }
+        .msg {
+            background:#005c4b;
+            margin:10px 0;
+            padding:10px 12px;
+            border-radius:10px;
+        }
 
-                .name {
-                    font-size:14px;
-                    margin-bottom:5px;
-                }
+        .name {
+            font-size:14px;
+            margin-bottom:5px;
+        }
 
-                audio {
-                    width:100%;
-                    margin-top:5px;
-                }
-            </style>
+        .time {
+            font-size:12px;
+            color:#ccc;
+            margin-bottom:5px;
+        }
 
+        audio {
+            width:100%;
+        }
+
+        .btn {
+            display:inline-block;
+            padding:10px 20px;
+            background:#00a884;
+            color:white;
+            border-radius:8px;
+            text-decoration:none;
+        }
+
+        </style>
         </head>
 
         <body>
@@ -135,21 +173,30 @@ def index():
         <div class="chat">
 
         {% for f in files %}
-            <div class="msg">
-                <div class="name">{{f.clean_name}}</div>
+        <div class="msg">
+            <div class="name">{{f.clean_name}}</div>
+            <div class="time">{{f.dt}}</div>
 
-                <audio controls onplay="pauseOthers(this)">
-                    <source src="/stream/{{f.id}}" type="audio/mp4">
-                </audio>
-            </div>
+            <audio controls preload="none" onplay="pauseOthers(this)">
+                <source src="/stream/{{f.id}}" type="audio/mp4">
+            </audio>
+        </div>
         {% endfor %}
+
+        {% if next_token %}
+        <div style="text-align:center;margin:20px;">
+            <a class="btn" href="/?pageToken={{next_token}}">
+                ➡ Next Page
+            </a>
+        </div>
+        {% endif %}
 
         </div>
 
         <script>
-        function pauseOthers(current) {
-            document.querySelectorAll("audio").forEach(a => {
-                if (a !== current) {
+        function pauseOthers(current){
+            document.querySelectorAll("audio").forEach(a=>{
+                if(a!==current){
                     a.pause();
                 }
             });
@@ -160,13 +207,13 @@ def index():
         </html>
         """
 
-        return render_template_string(html, files=files)
+        return render_template_string(html, files=files, next_token=next_token)
 
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-# ================== RUN ==================
+# ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
