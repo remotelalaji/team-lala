@@ -1,6 +1,7 @@
 import os
 import json
 import traceback
+import re
 
 from flask import Flask, render_template_string, Response
 from google.oauth2 import service_account
@@ -8,9 +9,10 @@ from googleapiclient.discovery import build
 
 app = Flask(__name__)
 
+# ================== CONFIG ==================
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 
-# ================= AUTH =================
+# ================== AUTH ==================
 service = None
 auth_error = None
 
@@ -31,7 +33,16 @@ except Exception:
     auth_error = traceback.format_exc()
 
 
-# ================= GET FILES =================
+# ================== NAME CLEAN ==================
+def extract_name(filename):
+    try:
+        name_part = filename.replace("Call recording ", "", 1)
+        return name_part.split("_")[0].strip()
+    except:
+        return filename
+
+
+# ================== GET FILES ==================
 def get_files():
     results = service.files().list(
         q=f"'{FOLDER_ID}' in parents and trashed=false",
@@ -39,18 +50,22 @@ def get_files():
         pageSize=100
     ).execute()
 
-    return results.get('files', [])
+    files = results.get('files', [])
+
+    for f in files:
+        f['clean_name'] = extract_name(f['name'])
+
+    return files
 
 
-# ================= STREAM AUDIO =================
+# ================== STREAM ==================
 @app.route("/stream/<file_id>")
 def stream(file_id):
     try:
         request = service.files().get_media(fileId=file_id)
 
         def generate():
-            fh = request.execute()
-            yield fh  # direct stream
+            yield request.execute()
 
         return Response(generate(), mimetype="audio/mp4")
 
@@ -58,7 +73,7 @@ def stream(file_id):
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-# ================= MAIN =================
+# ================== MAIN ==================
 @app.route("/")
 def index():
     try:
@@ -71,25 +86,65 @@ def index():
         <html>
         <head>
             <title>TEAM LALA</title>
+
             <style>
-                body {background:#0b1f2a;color:white;font-family:sans-serif;}
-                .card {background:#123544;padding:15px;margin:10px;border-radius:10px;}
-                audio {width:100%;}
+                body {
+                    background:#0b141a;
+                    color:white;
+                    font-family:Arial;
+                    margin:0;
+                }
+
+                .header {
+                    background:#202c33;
+                    padding:15px;
+                    font-size:18px;
+                    font-weight:bold;
+                }
+
+                .chat {
+                    padding:10px;
+                }
+
+                .msg {
+                    background:#005c4b;
+                    margin:10px 0;
+                    padding:10px 12px;
+                    border-radius:10px;
+                    max-width:80%;
+                    position:relative;
+                }
+
+                .name {
+                    font-size:14px;
+                    margin-bottom:5px;
+                }
+
+                audio {
+                    width:100%;
+                    margin-top:5px;
+                }
             </style>
+
         </head>
+
         <body>
 
-        <h2>🎧 Call Recordings</h2>
+        <div class="header">📱 TEAM LALA - Recordings</div>
+
+        <div class="chat">
 
         {% for f in files %}
-        <div class="card">
-            <b>{{f.name}}</b><br><br>
+            <div class="msg">
+                <div class="name">{{f.clean_name}}</div>
 
-            <audio controls onplay="pauseOthers(this)">
-                <source src="/stream/{{f.id}}" type="audio/mp4">
-            </audio>
-        </div>
+                <audio controls onplay="pauseOthers(this)">
+                    <source src="/stream/{{f.id}}" type="audio/mp4">
+                </audio>
+            </div>
         {% endfor %}
+
+        </div>
 
         <script>
         function pauseOthers(current) {
@@ -111,7 +166,7 @@ def index():
         return f"<pre>{traceback.format_exc()}</pre>"
 
 
-# ================= RUN =================
+# ================== RUN ==================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
