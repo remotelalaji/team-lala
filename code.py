@@ -2,8 +2,10 @@ import os
 import json
 import traceback
 import re
+import tempfile
+import subprocess
 from datetime import datetime
-from flask import Flask, render_template_string, request, Response
+from flask import Flask, render_template_string, request, Response, send_file
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -43,10 +45,7 @@ def extract_datetime(filename):
     try:
         match = re.search(r"_(\d{6})_(\d{6})", filename)
         if match:
-            date_raw = match.group(1)
-            time_raw = match.group(2)
-
-            dt = datetime.strptime(date_raw + time_raw, "%d%m%y%H%M%S")
+            dt = datetime.strptime(match.group(1) + match.group(2), "%d%m%y%H%M%S")
             return dt
     except:
         pass
@@ -70,16 +69,14 @@ def get_files(page_token=None):
     processed = []
 
     for f in files:
-        name = f['name']
-        dt = extract_datetime(name)
+        dt = extract_datetime(f['name'])
 
-        f['clean_name'] = extract_name(name)
+        f['clean_name'] = extract_name(f['name'])
         f['dt_obj'] = dt
         f['dt'] = dt.strftime("%d %b %Y | %I:%M %p") if dt else ""
 
         processed.append(f)
 
-    # 🔥 latest first
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
 
     return processed, next_token
@@ -93,6 +90,32 @@ def stream(file_id):
         return Response(request_drive.execute(), mimetype="audio/mp4")
     except Exception:
         return f"<pre>{traceback.format_exc()}</pre>"
+
+
+# ================= DOWNLOAD MP3 =================
+@app.route("/download/<file_id>")
+def download(file_id):
+    try:
+        request_drive = service.files().get_media(fileId=file_id)
+
+        # temp m4a
+        m4a = tempfile.NamedTemporaryFile(delete=False, suffix=".m4a")
+        m4a.write(request_drive.execute())
+        m4a.close()
+
+        # convert to mp3
+        mp3_path = m4a.name.replace(".m4a", ".mp3")
+
+        subprocess.run([
+            "ffmpeg", "-i", m4a.name,
+            "-q:a", "0", "-map", "a",
+            mp3_path
+        ])
+
+        return send_file(mp3_path, as_attachment=True)
+
+    except Exception as e:
+        return str(e)
 
 
 # ================= MAIN =================
@@ -156,11 +179,12 @@ def index():
 
         .btn {
             display:inline-block;
-            padding:10px 20px;
+            padding:8px 12px;
             background:#00a884;
             color:white;
-            border-radius:8px;
+            border-radius:6px;
             text-decoration:none;
+            margin-top:5px;
         }
 
         </style>
@@ -180,6 +204,9 @@ def index():
             <audio controls preload="none" onplay="pauseOthers(this)">
                 <source src="/stream/{{f.id}}" type="audio/mp4">
             </audio>
+
+            <br>
+            <a class="btn" href="/download/{{f.id}}">⬇ Download MP3</a>
         </div>
         {% endfor %}
 
