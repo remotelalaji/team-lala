@@ -3,6 +3,7 @@ import json
 import traceback
 import re
 from datetime import datetime, timedelta
+import pytz
 from flask import Flask, render_template_string, request, Response, redirect, session
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -87,36 +88,32 @@ def process_files(files, selected_customer=None, selected_date=None):
     processed = []
     customers = set()
 
+    ist = pytz.timezone("Asia/Kolkata")
+
     for f in files:
         name = extract_name(f['name'])
         dt = extract_datetime(f['name'])
 
         customers.add(name)
 
-        # customer filter
         if selected_customer and name != selected_customer:
             continue
 
-        # ✅ date filter
-        if selected_date and dt:
-            if dt.strftime("%Y-%m-%d") != selected_date:
-                continue
+        if dt:
+            # ✅ Convert to IST
+            dt = dt.replace(tzinfo=pytz.utc).astimezone(ist)
+
+            # ✅ Date filter
+            if selected_date:
+                if dt.strftime("%Y-%m-%d") != selected_date:
+                    continue
+
+            f['dt'] = dt.strftime("%d %b %Y • %I:%M %p")
+        else:
+            f['dt'] = ""
 
         f['clean_name'] = name
         f['dt_obj'] = dt
-
-        if dt:
-            today = datetime.now().date()
-            if dt.date() == today:
-                label = "Today"
-            elif dt.date() == today - timedelta(days=1):
-                label = "Yesterday"
-            else:
-                label = dt.strftime("%d %b %Y")
-
-            f['dt'] = f"{label} • {dt.strftime('%I:%M %p')}"
-        else:
-            f['dt'] = ""
 
         processed.append(f)
 
