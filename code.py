@@ -94,16 +94,14 @@ def process_files(files, selected_customer=None, selected_date=None):
         name = extract_name(f['name'])
         dt = extract_datetime(f['name'])
 
-        customers.add(name)
-
+        # FILTER: customer
         if selected_customer and name != selected_customer:
             continue
 
         if dt:
-            # ✅ Convert to IST
             dt = dt.replace(tzinfo=pytz.utc).astimezone(ist)
 
-            # ✅ Date filter
+            # FILTER: date
             if selected_date:
                 if dt.strftime("%Y-%m-%d") != selected_date:
                     continue
@@ -114,6 +112,9 @@ def process_files(files, selected_customer=None, selected_date=None):
 
         f['clean_name'] = name
         f['dt_obj'] = dt
+
+        # ✅ FIX: add customer ONLY if record passes filter
+        customers.add(name)
 
         processed.append(f)
 
@@ -163,7 +164,6 @@ def index():
         color:white;
     }
 
-    /* ===== HEADER ===== */
     .header {
         position: sticky;
         top: 0;
@@ -174,7 +174,6 @@ def index():
         font-weight:bold;
     }
 
-    /* ===== CUSTOMER BAR ===== */
     .custs {
         position: sticky;
         top: 55px;
@@ -198,11 +197,6 @@ def index():
         flex-shrink: 0;
     }
 
-    .cust:hover {
-        background:#00a884;
-    }
-
-    /* ===== CARDS ===== */
     .msg {
         margin:15px;
         padding:15px;
@@ -231,14 +225,12 @@ def index():
         📞 TEAM LALA CALLS |
         <a href="/logout" style="color:#00e5c3;">Logout</a>
 
-        <!-- DATE FILTER -->
         <form method="GET" style="display:inline;">
             <input type="date" name="date">
             <button>Filter</button>
         </form>
     </div>
 
-    <!-- CUSTOMER FILTER -->
     <div class="custs">
         <a class="cust" href="/">All</a>
         {% for c in customers %}
@@ -246,7 +238,6 @@ def index():
         {% endfor %}
     </div>
 
-    <!-- CALL LIST -->
     {% for f in files %}
     <div class="msg">
         <b>{{f.clean_name}}</b><br>
