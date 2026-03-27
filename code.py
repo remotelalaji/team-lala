@@ -34,23 +34,82 @@ def login():
             error = "Wrong Password"
 
     return render_template_string("""
-    <html>
-    <body style="display:flex;justify-content:center;align-items:center;height:100vh;
-    background:#0f2027;color:white;font-family:sans-serif;">
-        <form method="POST">
-            <h2>Enter Password</h2>
-            <input type="password" name="password" required>
-            <br><br>
-            <button>Login</button>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+    margin:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    background:#0f2027;
+    font-family:sans-serif;
+    color:white;
+}
 
-            {% if error %}
-            <p style="color:red;">{{error}}</p>
-            {% endif %}
+.login-box {
+    background:#111;
+    padding:40px 30px;
+    border-radius:15px;
+    width:90%;
+    max-width:400px;
+    text-align:center;
+    box-shadow:0 0 20px rgba(0,0,0,0.5);
+}
 
-        </form>
-    </body>
-    </html>
-    """, error=error)
+h2 {
+    margin-bottom:25px;
+    font-size:28px;
+}
+
+input {
+    width:100%;
+    padding:12px;
+    border-radius:8px;
+    border:none;
+    font-size:16px;
+}
+
+button {
+    margin-top:15px;
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#00e5c3;
+    color:black;
+    font-size:16px;
+    font-weight:bold;
+}
+
+@media (max-width: 500px) {
+    .login-box {
+        padding:30px 20px;
+    }
+    h2 {
+        font-size:24px;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="login-box">
+    <form method="POST">
+        <h2>Enter Password</h2>
+        <input type="password" name="password" placeholder="Enter password" required>
+        <button>Login</button>
+
+        {% if error %}
+        <p style="color:red; margin-top:10px;">{{error}}</p>
+        {% endif %}
+    </form>
+</div>
+</body>
+</html>
+""", error=error)
 
 @app.route("/logout")
 def logout():
@@ -154,111 +213,110 @@ def index():
     )
 
     return render_template_string("""
-    <html>
-    <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
 
-    body {
-        margin:0;
-        font-family:sans-serif;
-        background:#0f2027;
-        color:white;
-    }
+body {
+    margin:0;
+    font-family:sans-serif;
+    background:#0f2027;
+    color:white;
+}
 
-    .header {
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        padding:15px;
-        background:#111;
-    }
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    padding:15px;
+    background:#111;
+}
 
-    .custs {
-        position: sticky;
-        top: 55px;
-        z-index: 999;
-        display:flex;
-        overflow-x:auto;
-        gap:10px;
-        padding:10px;
-        background:#1a1a1a;
-    }
+.custs {
+    position: sticky;
+    top: 55px;
+    z-index: 999;
+    display:flex;
+    overflow-x:auto;
+    gap:10px;
+    padding:10px;
+    background:#1a1a1a;
+}
 
-    .cust {
-        padding:10px 15px;
-        background:#333;
-        border-radius:20px;
-        text-decoration:none;
-        color:white;
-        white-space: nowrap;
-    }
+.cust {
+    padding:10px 15px;
+    background:#333;
+    border-radius:20px;
+    text-decoration:none;
+    color:white;
+    white-space: nowrap;
+}
 
-    .msg {
-        margin:15px;
-        padding:15px;
-        background:#222;
-        border-radius:15px;
-    }
+.msg {
+    margin:15px;
+    padding:15px;
+    background:#222;
+    border-radius:15px;
+}
 
-    audio {
-        width:100%;
-        margin-top:10px;
-    }
+audio {
+    width:100%;
+    margin-top:10px;
+}
 
-    </style>
-    </head>
+</style>
+</head>
 
-    <body>
+<body>
 
-    <div class="header">
-        📞 rahul jnb 1 |
-        <a href="/logout" style="color:#00e5c3;">Logout</a>
+<div class="header">
+    📞 rahul jnb 1 |
+    <a href="/logout" style="color:#00e5c3;">Logout</a>
 
-        <form method="GET" style="display:inline;">
-            <input type="hidden" name="customer" value="{{request.args.get('customer','')}}">
-            <input type="date" name="date" onchange="this.form.submit()">
-        </form>
-    </div>
+    <form method="GET" style="display:inline;">
+        <input type="hidden" name="customer" value="{{request.args.get('customer','')}}">
+        <input type="date" name="date" onchange="this.form.submit()">
+    </form>
+</div>
 
-    <div class="custs">
-        <a class="cust" href="/">All</a>
-        {% for c in customers %}
-            <a class="cust" href="/?customer={{c}}">{{c}}</a>
-        {% endfor %}
-    </div>
-
-    {% for f in files %}
-    <div class="msg">
-        <b>{{f.clean_name}}</b><br>
-        {{f.dt}}
-
-        <audio controls preload="none">
-            <source src="/stream/{{f.id}}" type="audio/mp4">
-        </audio>
-    </div>
+<div class="custs">
+    <a class="cust" href="/">All</a>
+    {% for c in customers %}
+        <a class="cust" href="/?customer={{c}}">{{c}}</a>
     {% endfor %}
+</div>
 
-    <!-- AUDIO FIX -->
-    <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        document.body.addEventListener("play", function(e) {
-            if (e.target.tagName === "AUDIO") {
-                const audios = document.querySelectorAll("audio");
-                audios.forEach(audio => {
-                    if (audio !== e.target) {
-                        audio.pause();
-                        audio.currentTime = 0;
-                    }
-                });
-            }
-        }, true);
-    });
-    </script>
+{% for f in files %}
+<div class="msg">
+    <b>{{f.clean_name}}</b><br>
+    {{f.dt}}
 
-    </body>
-    </html>
-    """, files=files, customers=customers)
+    <audio controls preload="none">
+        <source src="/stream/{{f.id}}" type="audio/mp4">
+    </audio>
+</div>
+{% endfor %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.body.addEventListener("play", function(e) {
+        if (e.target.tagName === "AUDIO") {
+            const audios = document.querySelectorAll("audio");
+            audios.forEach(audio => {
+                if (audio !== e.target) {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }
+            });
+        }
+    }, true);
+});
+</script>
+
+</body>
+</html>
+""", files=files, customers=customers)
 
 # ================= RUN =================
 if __name__ == "__main__":
