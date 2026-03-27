@@ -1,6 +1,5 @@
 import os
 import json
-import traceback
 import re
 from datetime import datetime
 import pytz
@@ -93,7 +92,6 @@ def extract_datetime(filename):
 def process_files(files, selected_customer=None, selected_date=None):
     processed = []
     customers = set()
-
     ist = pytz.timezone("Asia/Kolkata")
 
     for f in files:
@@ -161,7 +159,6 @@ def index():
     <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-
     body {
         margin:0;
         font-family:sans-serif;
@@ -199,7 +196,6 @@ def index():
         color:white;
         font-weight:bold;
         white-space: nowrap;
-        flex-shrink: 0;
     }
 
     .msg {
@@ -213,21 +209,13 @@ def index():
         width:100%;
         margin-top:10px;
     }
-
-    input, button {
-        border-radius:8px;
-        border:none;
-        padding:5px;
-        margin-left:5px;
-    }
-
     </style>
     </head>
 
     <body>
 
     <div class="header">
-        📞 TEAM LALA CALLS |
+        📞 tl calls 1 |
         <a href="/logout" style="color:#00e5c3;">Logout</a>
 
         <form method="GET" style="display:inline;">
@@ -255,21 +243,25 @@ def index():
     </div>
     {% endfor %}
 
-    <!-- 🔥 FIX: Only one audio plays -->
+    <!-- ✅ FINAL AUDIO FIX -->
     <script>
-    const audios = document.querySelectorAll("audio");
+    document.addEventListener("DOMContentLoaded", function () {
 
-    audios.forEach(audio => {
-        audio.addEventListener("play", function() {
+        document.body.addEventListener("play", function(e) {
+            if (e.target.tagName === "AUDIO") {
 
-            audios.forEach(other => {
-                if (other !== audio) {
-                    other.pause();
-                    other.currentTime = 0;
-                }
-            });
+                const audios = document.querySelectorAll("audio");
 
-        });
+                audios.forEach(audio => {
+                    if (audio !== e.target) {
+                        audio.pause();
+                        audio.currentTime = 0;
+                    }
+                });
+
+            }
+        }, true);
+
     });
     </script>
 
