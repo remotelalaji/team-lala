@@ -56,7 +56,6 @@ body {
     width:90%;
     max-width:400px;
     text-align:center;
-    box-shadow:0 0 20px rgba(0,0,0,0.5);
 }
 
 h2 {
@@ -81,17 +80,8 @@ button {
     background:#00e5c3;
     color:black;
     font-size:16px;
-    font-weight:bold;
 }
 
-@media (max-width: 500px) {
-    .login-box {
-        padding:30px 20px;
-    }
-    h2 {
-        font-size:24px;
-    }
-}
 </style>
 </head>
 
@@ -99,11 +89,11 @@ button {
 <div class="login-box">
     <form method="POST">
         <h2>Enter Password</h2>
-        <input type="password" name="password" placeholder="Enter password" required>
+        <input type="password" name="password" required>
         <button>Login</button>
 
         {% if error %}
-        <p style="color:red; margin-top:10px;">{{error}}</p>
+        <p style="color:red;">{{error}}</p>
         {% endif %}
     </form>
 </div>
@@ -160,7 +150,8 @@ def process_files(files, selected_customer=None, selected_date=None):
             continue
 
         if dt:
-            dt = pytz.utc.localize(dt).astimezone(ist)
+            # ✅ FIXED TIME
+            dt = ist.localize(dt)
 
             if selected_date:
                 if dt.strftime("%Y-%m-%d") != selected_date:
@@ -228,7 +219,6 @@ body {
 .header {
     position: sticky;
     top: 0;
-    z-index: 1000;
     padding:15px;
     background:#111;
 }
@@ -236,7 +226,6 @@ body {
 .custs {
     position: sticky;
     top: 55px;
-    z-index: 999;
     display:flex;
     overflow-x:auto;
     gap:10px;
@@ -250,7 +239,6 @@ body {
     border-radius:20px;
     text-decoration:none;
     color:white;
-    white-space: nowrap;
 }
 
 .msg {
@@ -262,7 +250,6 @@ body {
 
 audio {
     width:100%;
-    margin-top:10px;
 }
 
 </style>
@@ -299,19 +286,16 @@ audio {
 {% endfor %}
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    document.body.addEventListener("play", function(e) {
-        if (e.target.tagName === "AUDIO") {
-            const audios = document.querySelectorAll("audio");
-            audios.forEach(audio => {
-                if (audio !== e.target) {
-                    audio.pause();
-                    audio.currentTime = 0;
-                }
-            });
-        }
-    }, true);
-});
+document.body.addEventListener("play", function(e) {
+    if (e.target.tagName === "AUDIO") {
+        document.querySelectorAll("audio").forEach(a => {
+            if (a !== e.target) {
+                a.pause();
+                a.currentTime = 0;
+            }
+        });
+    }
+}, true);
 </script>
 
 </body>
