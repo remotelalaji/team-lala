@@ -57,17 +57,12 @@ def logout():
 service = None
 try:
     raw_json = os.environ.get("SERVICE_ACCOUNT_JSON")
-    if not raw_json:
-        raise Exception("Missing SERVICE_ACCOUNT_JSON")
-
     creds = service_account.Credentials.from_service_account_info(
         json.loads(raw_json),
         scopes=['https://www.googleapis.com/auth/drive']
     )
     service = build('drive', 'v3', credentials=creds)
-
-except Exception as e:
-    print("Google Auth Error:", e)
+except:
     service = None
 
 # ================= HELPERS =================
@@ -137,7 +132,7 @@ def stream(file_id):
 @login_required
 def index():
     if service is None:
-        return "Google Drive not connected properly"
+        return "Google Drive not connected"
 
     selected_customer = request.args.get("customer")
     selected_date = request.args.get("date")
@@ -159,10 +154,11 @@ def index():
     <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+
     body {
         margin:0;
         font-family:sans-serif;
-        background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+        background:#0f2027;
         color:white;
     }
 
@@ -171,9 +167,7 @@ def index():
         top: 0;
         z-index: 1000;
         padding:15px;
-        background: rgba(0,0,0,0.6);
-        backdrop-filter: blur(10px);
-        font-weight:bold;
+        background:#111; /* 🔥 solid */
     }
 
     .custs {
@@ -184,24 +178,22 @@ def index():
         overflow-x:auto;
         gap:10px;
         padding:10px;
-        background: rgba(0,0,0,0.5);
-        backdrop-filter: blur(10px);
+        background:#1a1a1a; /* 🔥 solid */
     }
 
     .cust {
         padding:10px 15px;
-        background:rgba(255,255,255,0.1);
+        background:#333;
         border-radius:20px;
         text-decoration:none;
         color:white;
-        font-weight:bold;
         white-space: nowrap;
     }
 
     .msg {
         margin:15px;
         padding:15px;
-        background:rgba(255,255,255,0.1);
+        background:#222;
         border-radius:15px;
     }
 
@@ -209,19 +201,19 @@ def index():
         width:100%;
         margin-top:10px;
     }
+
     </style>
     </head>
 
     <body>
 
     <div class="header">
-        📞 tl calls 1 |
+        📞 rahul jnb 1 |
         <a href="/logout" style="color:#00e5c3;">Logout</a>
 
         <form method="GET" style="display:inline;">
             <input type="hidden" name="customer" value="{{request.args.get('customer','')}}">
-            <input type="date" name="date">
-            <button>Filter</button>
+            <input type="date" name="date" onchange="this.form.submit()">
         </form>
     </div>
 
@@ -243,25 +235,20 @@ def index():
     </div>
     {% endfor %}
 
-    <!-- ✅ FINAL AUDIO FIX -->
+    <!-- AUDIO FIX -->
     <script>
     document.addEventListener("DOMContentLoaded", function () {
-
         document.body.addEventListener("play", function(e) {
             if (e.target.tagName === "AUDIO") {
-
                 const audios = document.querySelectorAll("audio");
-
                 audios.forEach(audio => {
                     if (audio !== e.target) {
                         audio.pause();
                         audio.currentTime = 0;
                     }
                 });
-
             }
         }, true);
-
     });
     </script>
 
