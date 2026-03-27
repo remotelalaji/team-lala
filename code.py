@@ -194,7 +194,6 @@ def index():
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 
-/* BACKGROUND */
 body {
     margin:0;
     font-family:sans-serif;
@@ -202,7 +201,6 @@ body {
     background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 }
 
-/* HEADER */
 .header {
     position: sticky;
     top: 0;
@@ -212,7 +210,6 @@ body {
     background: rgba(255,255,255,0.08);
 }
 
-/* CUSTOMER BAR */
 .custs {
     position: sticky;
     top: 55px;
@@ -223,25 +220,21 @@ body {
     padding:10px;
 }
 
-/* CHIP */
 .cust {
     flex:0 0 auto;
     padding:8px 14px;
     border-radius:20px;
     color:white;
     text-decoration:none;
-
     background: rgba(255,255,255,0.1);
     backdrop-filter: blur(12px);
     border:1px solid rgba(255,255,255,0.2);
 }
 
-/* GLASS CARD */
 .msg {
     margin:12px;
     padding:14px;
     border-radius:16px;
-
     background: rgba(255,255,255,0.1);
     backdrop-filter: blur(20px);
     border:1px solid rgba(255,255,255,0.15);
@@ -260,7 +253,7 @@ audio {
 <body>
 
 <div class="header">
-📞 rahul jnb 1 |
+📞 TEAM LALA RECORDING SYSTEM |
 <a href="/logout" style="color:#00e5c3;">Logout</a>
 
 <form method="GET" style="display:inline;">
