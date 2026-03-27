@@ -14,7 +14,7 @@ app.secret_key = "secretkey"
 FOLDER_ID = "1WQ0ZftxRFmJ6eJ0Q6UAaLeMeVnUiemDb"
 APP_PASSWORD = "669900"
 
-# ================= LOGIN =================
+# LOGIN
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -45,30 +45,29 @@ body {
     align-items:center;
     height:100vh;
     background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    font-family:sans-serif;
     color:white;
+    font-family:sans-serif;
 }
-
 .login-box {
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(15px);
-    padding:30px 20px;
-    border-radius:15px;
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(20px);
+    padding:35px;
+    border-radius:20px;
     width:90%;
-    max-width:350px;
+    max-width:360px;
     text-align:center;
+    box-shadow:0 0 30px rgba(0,0,0,0.5);
 }
-
 input, button {
     width:100%;
-    padding:10px;
+    padding:12px;
     margin-top:10px;
-    border-radius:6px;
     border:none;
+    border-radius:8px;
 }
-
 button {
     background:#00e5c3;
+    font-weight:bold;
 }
 </style>
 </head>
@@ -92,7 +91,7 @@ def logout():
     session.clear()
     return redirect("/login")
 
-# ================= GOOGLE =================
+# GOOGLE
 service = None
 try:
     raw_json = os.environ.get("SERVICE_ACCOUNT_JSON")
@@ -104,7 +103,7 @@ try:
 except:
     service = None
 
-# ================= HELPERS =================
+# HELPERS
 def extract_name(filename):
     try:
         name = filename.replace("Call recording ", "", 1)
@@ -122,7 +121,7 @@ def extract_datetime(filename):
     except:
         return None
 
-# ================= PROCESS =================
+# PROCESS
 def process_files(files, selected_customer=None, selected_date=None):
     processed = []
     customers = set()
@@ -157,7 +156,7 @@ def process_files(files, selected_customer=None, selected_date=None):
 
     return processed, customers
 
-# ================= STREAM =================
+# STREAM
 @app.route("/stream/<file_id>")
 @login_required
 def stream(file_id):
@@ -166,7 +165,7 @@ def stream(file_id):
         mimetype="audio/mp4"
     )
 
-# ================= MAIN =================
+# MAIN
 @app.route("/")
 @login_required
 def index():
@@ -194,57 +193,82 @@ def index():
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 
+/* BACKGROUND */
 body {
     margin:0;
     font-family:sans-serif;
     color:white;
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    background:
+        radial-gradient(circle at 20% 20%, rgba(0,229,195,0.2), transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(79,172,254,0.2), transparent 40%),
+        linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 }
 
+/* HEADER */
 .header {
     position: sticky;
     top: 0;
     z-index:1000;
-    padding:12px;
-    backdrop-filter: blur(20px);
+    padding:14px;
+    backdrop-filter: blur(25px);
     background: rgba(255,255,255,0.08);
 }
 
+/* TITLE */
+.title {
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:1px;
+    background: linear-gradient(90deg,#00e5c3,#00bcd4,#4facfe);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    text-shadow:0 0 15px rgba(0,229,195,0.7);
+}
+
+/* CUSTOMER BAR */
 .custs {
     position: sticky;
-    top: 55px;
-    z-index:999;
+    top: 60px;
     display:flex;
     overflow-x:auto;
     gap:10px;
     padding:10px;
 }
 
+/* CHIP */
 .cust {
     flex:0 0 auto;
-    padding:8px 14px;
-    border-radius:20px;
-    color:white;
-    text-decoration:none;
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(12px);
-    border:1px solid rgba(255,255,255,0.2);
+    padding:8px 16px;
+    border-radius:25px;
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(15px);
+    border:1px solid rgba(255,255,255,0.25);
+    transition:0.3s;
 }
 
+.cust:hover {
+    background: rgba(0,229,195,0.25);
+    box-shadow:0 0 10px rgba(0,229,195,0.6);
+}
+
+/* CARD */
 .msg {
-    margin:12px;
-    padding:14px;
-    border-radius:16px;
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(20px);
-    border:1px solid rgba(255,255,255,0.15);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    margin:14px;
+    padding:16px;
+    border-radius:18px;
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(25px);
+    border:1px solid rgba(255,255,255,0.2);
+    box-shadow:
+        0 10px 30px rgba(0,0,0,0.5),
+        inset 0 0 10px rgba(255,255,255,0.1);
 }
 
+/* AUDIO */
 audio {
     width:100%;
     margin-top:10px;
-    height:34px;
+    height:36px;
 }
 
 </style>
@@ -253,7 +277,7 @@ audio {
 <body>
 
 <div class="header">
-📞 TEAM LALA RECORDING SYSTEM |
+<span class="title">📞 TEAM LALA RECORDING SYSTEM</span> |
 <a href="/logout" style="color:#00e5c3;">Logout</a>
 
 <form method="GET" style="display:inline;">
@@ -297,7 +321,6 @@ a.currentTime = 0;
 </html>
 """, files=files, customers=customers)
 
-# ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
