@@ -44,21 +44,18 @@ body {
     justify-content:center;
     align-items:center;
     height:100vh;
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    background:#0f2027;
     color:white;
     font-family:sans-serif;
 }
-
 .login-box {
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(15px);
+    background:#111;
     padding:30px;
-    border-radius:16px;
+    border-radius:12px;
     width:90%;
     max-width:350px;
     text-align:center;
 }
-
 input, button {
     width:100%;
     padding:12px;
@@ -66,10 +63,8 @@ input, button {
     border:none;
     border-radius:8px;
 }
-
 button {
     background:#00e5c3;
-    font-weight:bold;
 }
 </style>
 </head>
@@ -195,60 +190,74 @@ def index():
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 
-/* BACKGROUND */
+/* BASE */
 body {
     margin:0;
     font-family:sans-serif;
+    background:#0f2027;
     color:white;
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+}
+
+a {
+    color:white;
+    text-decoration:none;
 }
 
 /* HEADER */
 .header {
     position: sticky;
     top: 0;
-    padding:10px 12px;
-    background: rgba(0,0,0,0.4);
-    backdrop-filter: blur(20px);
+    z-index:1000;
+    padding:10px;
+    background: rgba(0,0,0,0.6);
 }
 
 /* TITLE */
 .title {
     font-size:18px;
     font-weight:700;
-    letter-spacing:1px;
-    background: linear-gradient(90deg,#00e5c3,#4facfe);
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
 }
 
 /* CUSTOMER BAR */
 .custs {
+    position: sticky;
+    top: 50px;
+    z-index:999;
+
     display:flex;
+    flex-wrap: nowrap;
     overflow-x:auto;
     gap:8px;
-    padding:8px;
+    padding:10px;
+
+    background: rgba(0,0,0,0.5);
 }
 
-/* CHIP */
 .cust {
+    flex:0 0 auto;
     padding:6px 12px;
     border-radius:20px;
-    background: rgba(255,255,255,0.08);
-    font-size:12px;
+    background:#1e2a33;
+    white-space: nowrap;
 }
 
 /* CARD */
 .msg {
+    position: relative;
+    z-index:1;
+
     margin:12px;
     padding:14px;
-    border-radius:18px;
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(20px);
-    border:1px solid rgba(255,255,255,0.15);
-    box-shadow:
-        0 8px 25px rgba(0,0,0,0.6),
-        inset 0 0 15px rgba(255,255,255,0.05);
+    border-radius:16px;
+    background:#1b2b34;
+}
+
+.msg b {
+    font-size:15px;
+}
+
+.msg small {
+    color:#ccc;
 }
 
 /* AUDIO */
@@ -265,6 +274,7 @@ audio {
 
 <div class="header">
 <span class="title">📞 TEAM LALA RECORDING SYSTEM</span><br>
+
 <a href="/logout" style="color:#00e5c3;">Logout</a>
 
 <form method="GET" style="display:inline;">
