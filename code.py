@@ -48,16 +48,17 @@ body {
     color:white;
     font-family:sans-serif;
 }
+
 .login-box {
     background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(20px);
-    padding:35px;
-    border-radius:20px;
+    backdrop-filter: blur(15px);
+    padding:30px;
+    border-radius:16px;
     width:90%;
-    max-width:360px;
+    max-width:350px;
     text-align:center;
-    box-shadow:0 0 30px rgba(0,0,0,0.5);
 }
+
 input, button {
     width:100%;
     padding:12px;
@@ -65,6 +66,7 @@ input, button {
     border:none;
     border-radius:8px;
 }
+
 button {
     background:#00e5c3;
     font-weight:bold;
@@ -198,77 +200,62 @@ body {
     margin:0;
     font-family:sans-serif;
     color:white;
-    background:
-        radial-gradient(circle at 20% 20%, rgba(0,229,195,0.2), transparent 40%),
-        radial-gradient(circle at 80% 80%, rgba(79,172,254,0.2), transparent 40%),
-        linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 }
 
 /* HEADER */
 .header {
     position: sticky;
     top: 0;
-    z-index:1000;
-    padding:14px;
-    backdrop-filter: blur(25px);
-    background: rgba(255,255,255,0.08);
+    padding:10px 12px;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(20px);
 }
 
 /* TITLE */
 .title {
-    font-size:22px;
-    font-weight:800;
+    font-size:18px;
+    font-weight:700;
     letter-spacing:1px;
-    background: linear-gradient(90deg,#00e5c3,#00bcd4,#4facfe);
+    background: linear-gradient(90deg,#00e5c3,#4facfe);
     -webkit-background-clip:text;
     -webkit-text-fill-color:transparent;
-    text-shadow:0 0 15px rgba(0,229,195,0.7);
 }
 
 /* CUSTOMER BAR */
 .custs {
-    position: sticky;
-    top: 60px;
     display:flex;
     overflow-x:auto;
-    gap:10px;
-    padding:10px;
+    gap:8px;
+    padding:8px;
 }
 
 /* CHIP */
 .cust {
-    flex:0 0 auto;
-    padding:8px 16px;
-    border-radius:25px;
-    background: rgba(255,255,255,0.12);
-    backdrop-filter: blur(15px);
-    border:1px solid rgba(255,255,255,0.25);
-    transition:0.3s;
-}
-
-.cust:hover {
-    background: rgba(0,229,195,0.25);
-    box-shadow:0 0 10px rgba(0,229,195,0.6);
+    padding:6px 12px;
+    border-radius:20px;
+    background: rgba(255,255,255,0.08);
+    font-size:12px;
 }
 
 /* CARD */
 .msg {
-    margin:14px;
-    padding:16px;
+    margin:12px;
+    padding:14px;
     border-radius:18px;
-    background: rgba(255,255,255,0.12);
-    backdrop-filter: blur(25px);
-    border:1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(20px);
+    border:1px solid rgba(255,255,255,0.15);
     box-shadow:
-        0 10px 30px rgba(0,0,0,0.5),
-        inset 0 0 10px rgba(255,255,255,0.1);
+        0 8px 25px rgba(0,0,0,0.6),
+        inset 0 0 15px rgba(255,255,255,0.05);
 }
 
 /* AUDIO */
 audio {
     width:100%;
-    margin-top:10px;
-    height:36px;
+    margin-top:8px;
+    height:30px;
 }
 
 </style>
@@ -277,7 +264,7 @@ audio {
 <body>
 
 <div class="header">
-<span class="title">📞 TEAM LALA RECORDING SYSTEM</span> |
+<span class="title">📞 TEAM LALA RECORDING SYSTEM</span><br>
 <a href="/logout" style="color:#00e5c3;">Logout</a>
 
 <form method="GET" style="display:inline;">
