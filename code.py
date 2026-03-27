@@ -268,7 +268,7 @@ audio {
 <div class="custs">
     <a class="cust" href="/">All</a>
     {% for c in customers %}
-        <a class="cust" href="/?customer={{c}}">{{c}}</a>
+        <a class="cust" href="/?customer={{c | urlencode}}">{{c}}</a>
     {% endfor %}
 </div>
 
