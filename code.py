@@ -2,11 +2,12 @@ import os
 import json
 import traceback
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
 from flask import Flask, render_template_string, request, Response, redirect, session
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = "secretkey"
@@ -16,11 +17,11 @@ APP_PASSWORD = "669900"
 
 # ================= LOGIN =================
 def login_required(f):
+    @wraps(f)
     def wrapper(*args, **kwargs):
         if not session.get("logged_in"):
             return redirect("/login")
         return f(*args, **kwargs)
-    wrapper.__name__ = f.__name__
     return wrapper
 
 @app.route("/login", methods=["GET", "POST"])
@@ -57,13 +58,18 @@ def logout():
 service = None
 try:
     raw_json = os.environ.get("SERVICE_ACCOUNT_JSON")
+    if not raw_json:
+        raise Exception("Missing SERVICE_ACCOUNT_JSON")
+
     creds = service_account.Credentials.from_service_account_info(
         json.loads(raw_json),
         scopes=['https://www.googleapis.com/auth/drive']
     )
     service = build('drive', 'v3', credentials=creds)
-except:
-    pass
+
+except Exception as e:
+    print("Google Auth Error:", e)
+    service = None
 
 # ================= HELPERS =================
 def extract_name(filename):
@@ -94,14 +100,12 @@ def process_files(files, selected_customer=None, selected_date=None):
         name = extract_name(f['name'])
         dt = extract_datetime(f['name'])
 
-        # FILTER: customer
         if selected_customer and name != selected_customer:
             continue
 
         if dt:
-            dt = dt.replace(tzinfo=pytz.utc).astimezone(ist)
+            dt = pytz.utc.localize(dt).astimezone(ist)
 
-            # FILTER: date
             if selected_date:
                 if dt.strftime("%Y-%m-%d") != selected_date:
                     continue
@@ -113,9 +117,7 @@ def process_files(files, selected_customer=None, selected_date=None):
         f['clean_name'] = name
         f['dt_obj'] = dt
 
-        # ✅ FIX: add customer ONLY if record passes filter
         customers.add(name)
-
         processed.append(f)
 
     processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
@@ -136,6 +138,9 @@ def stream(file_id):
 @app.route("/")
 @login_required
 def index():
+    if service is None:
+        return "Google Drive not connected properly"
+
     selected_customer = request.args.get("customer")
     selected_date = request.args.get("date")
 
@@ -226,6 +231,7 @@ def index():
         <a href="/logout" style="color:#00e5c3;">Logout</a>
 
         <form method="GET" style="display:inline;">
+            <input type="hidden" name="customer" value="{{request.args.get('customer','')}}">
             <input type="date" name="date">
             <button>Filter</button>
         </form>
@@ -248,6 +254,24 @@ def index():
         </audio>
     </div>
     {% endfor %}
+
+    <!-- 🔥 FIX: Only one audio plays -->
+    <script>
+    const audios = document.querySelectorAll("audio");
+
+    audios.forEach(audio => {
+        audio.addEventListener("play", function() {
+
+            audios.forEach(other => {
+                if (other !== audio) {
+                    other.pause();
+                    other.currentTime = 0;
+                }
+            });
+
+        });
+    });
+    </script>
 
     </body>
     </html>
