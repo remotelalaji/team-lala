@@ -42,7 +42,11 @@ def login():
             <input type="password" name="password" required>
             <br><br>
             <button>Login</button>
+
+            {% if error %}
             <p style="color:red;">{{error}}</p>
+            {% endif %}
+
         </form>
     </body>
     </html>
@@ -167,7 +171,7 @@ def index():
         top: 0;
         z-index: 1000;
         padding:15px;
-        background:#111; /* 🔥 solid */
+        background:#111;
     }
 
     .custs {
@@ -178,7 +182,7 @@ def index():
         overflow-x:auto;
         gap:10px;
         padding:10px;
-        background:#1a1a1a; /* 🔥 solid */
+        background:#1a1a1a;
     }
 
     .cust {
