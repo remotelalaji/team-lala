@@ -1,7 +1,7 @@
 import os
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 import pytz
 from flask import Flask, render_template_string, request, Response, redirect, session
 from google.oauth2 import service_account
@@ -123,6 +123,7 @@ def process_files(files, selected_customer=None, selected_date=None):
     processed = []
     customers = set()
     ist = pytz.timezone("Asia/Kolkata")
+    min_dt = datetime.min.replace(tzinfo=timezone.utc)
 
     for f in files:
         name = extract_name(f['name'])
@@ -132,13 +133,14 @@ def process_files(files, selected_customer=None, selected_date=None):
             continue
 
         if dt:
-            dt = ist.localize(dt)
+            dt = ist.localize(dt).astimezone(timezone.utc)
 
             if selected_date:
                 if dt.strftime("%Y-%m-%d") != selected_date:
                     continue
 
-            f['dt'] = dt.strftime("%d %b %Y • %I:%M %p")
+            # Show time in IST on the page
+            f['dt'] = dt.astimezone(ist).strftime("%d %b %Y • %I:%M %p")
         else:
             f['dt'] = ""
 
@@ -148,7 +150,7 @@ def process_files(files, selected_customer=None, selected_date=None):
         customers.add(name)
         processed.append(f)
 
-    processed.sort(key=lambda x: x['dt_obj'] or datetime.min, reverse=True)
+    processed.sort(key=lambda x: x.get('dt_obj') or min_dt, reverse=True)
     customers = sorted(customers, key=lambda x: x.lower())
 
     return processed, customers
